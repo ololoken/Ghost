@@ -5,6 +5,7 @@ const config = require('../../config');
 const common = require('../../lib/common');
 const settingsCache = require('../settings/cache');
 const activeTheme = require('./active');
+const themeConfigAllowedKeys = require('./config').allowedKeys;
 
 // ### Ensure Active Theme
 // Ensure there's a properly set & mounted active theme before attempting to serve a blog request
@@ -45,10 +46,7 @@ function updateGlobalTemplateOptions(req, res, next) {
     // @TODO: decouple theme layer from settings cache using the Content API
     const siteData = settingsCache.getPublic();
     const labsData = _.cloneDeep(settingsCache.get('labs'));
-    const themeData = {
-        posts_per_page: activeTheme.get().config('posts_per_page'),
-        image_sizes: activeTheme.get().config('image_sizes')
-    };
+    const themeData = themeConfigAllowedKeys.reduce((conf, key) => Object.assign(conf, {[key]: activeTheme.get().config(key)}), {});
 
     // @TODO: only do this if something changed?
     // @TODO: remove blog if we drop v0.1 (Ghost 3.0)

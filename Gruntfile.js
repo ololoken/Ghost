@@ -145,7 +145,7 @@ const configureGrunt = function (grunt) {
             client: {
                 cmd: function () {
                     logBuildingClient(grunt);
-                    return 'grunt subgrunt:watch';
+                    return './node_modules/.bin/grunt subgrunt:watch';
                 },
                 bg: grunt.option('client') ? false : true,
                 stdout: function (chunk) {
