@@ -11,3 +11,5 @@ module.exports.create = function configLoader(packageJson) {
 
     return config;
 };
+
+module.exports.allowedKeys = allowedKeys;

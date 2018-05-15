@@ -11,7 +11,8 @@ const site = {
             return {
                 title: settingsCache.get('title'),
                 url: urlService.utils.urlFor('home', true),
-                version: ghostVersion.safe
+                version: ghostVersion.safe,
+                defaultLocale: settingsCache.get('default_locale')
             };
         }
     }
