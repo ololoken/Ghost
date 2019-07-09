@@ -3,21 +3,17 @@ const debug = require('ghost-ignition').debug('themes');
 const common = require('../../../server/lib/common');
 const themeLoader = require('./loader');
 const active = require('./active');
+const activate = require('./activate');
 const validate = require('./validate');
-const Storage = require('./Storage');
+const list = require('./list');
 const settingsCache = require('../../../server/services/settings/cache');
 const engineDefaults = require('./engines/defaults');
 
-let themeStorage;
-
-// @TODO: reduce the amount of things we expose to the outside world
-// Make this a nice clean sensible API we can all understand!
 module.exports = {
     // Init themes module
     // TODO: move this once we're clear what needs to happen here
     init: function initThemes() {
-        var activeThemeName = settingsCache.get('active_theme'),
-            self = this;
+        var activeThemeName = settingsCache.get('active_theme');
 
         debug('init themes', activeThemeName);
 
@@ -46,7 +42,7 @@ module.exports = {
 
                             common.logging.error(checkError);
 
-                            self.activate(theme, checkedTheme, checkError);
+                            activate(theme, checkedTheme, checkError);
                         } else {
                             // CASE: inform that the theme has errors, but not fatal (theme still works)
                             if (checkedTheme.results.error.length) {
@@ -63,7 +59,7 @@ module.exports = {
 
                             debug('Activating theme (method A on boot)', activeThemeName);
 
-                            self.activate(theme, checkedTheme);
+                            activate(theme, checkedTheme);
                         }
                     });
             })
@@ -78,17 +74,7 @@ module.exports = {
                 common.logging.error(err);
             });
     },
-    // Load themes, soon to be removed and exposed via specific function.
-    loadAll: themeLoader.loadAllThemes,
-    loadOne: themeLoader.loadOneTheme,
-    get storage() {
-        themeStorage = themeStorage || new Storage();
-
-        return themeStorage;
-    },
-    list: require('./list'),
-    validate: validate,
-    toJSON: require('./to-json'),
+    getJSON: require('./to-json'),
     getActive: active.get,
     getApiVersion: function getApiVersion() {
         if (this.getActive()) {
@@ -97,32 +83,24 @@ module.exports = {
             return engineDefaults['ghost-api'];
         }
     },
-    activate: function activate(loadedTheme, checkedTheme, error) {
-        // no need to check the score, activation should be used in combination with validate.check
-        // Use the two theme objects to set the current active theme
-        try {
-            let previousGhostAPI;
+    activate: function (themeName) {
+        const loadedTheme = list.get(themeName);
 
-            if (this.getActive()) {
-                previousGhostAPI = this.getApiVersion();
-            }
-
-            active.set(loadedTheme, checkedTheme, error);
-            const currentGhostAPI = this.getApiVersion();
-
-            common.events.emit('services.themes.activated');
-
-            if (previousGhostAPI !== undefined && (previousGhostAPI !== currentGhostAPI)) {
-                common.events.emit('services.themes.api.changed');
-                const siteApp = require('../../../server/web/site/app');
-                siteApp.reload();
-            }
-        } catch (err) {
-            common.logging.error(new common.errors.InternalServerError({
-                message: common.i18n.t('errors.middleware.themehandler.activateFailed', {theme: loadedTheme.name}),
-                err: err
+        if (!loadedTheme) {
+            return Promise.reject(new common.errors.ValidationError({
+                message: common.i18n.t('notices.data.validation.index.themeCannotBeActivated', {themeName: themeName}),
+                errorDetails: themeName
             }));
         }
+
+        return validate.checkSafe(loadedTheme)
+            .then((checkedTheme) => {
+                debug('Activating theme (method B on API "activate")', themeName);
+                activate(loadedTheme, checkedTheme);
+
+                return checkedTheme;
+            });
     },
+    storage: require('./storage'),
     middleware: require('./middleware')
 };
