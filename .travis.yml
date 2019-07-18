@@ -19,7 +19,6 @@ matrix:
     env: TEST_SUITE=lint
   allow_failures:
   - node_js: '12'
-  fast_finish: true
 install:
 - if [ "$TRAVIS_NODE_VERSION" == "12" ]; then yarn --ignore-engines; else yarn; fi
 before_script:
