@@ -1,3 +1,4 @@
+const _ = require('lodash');
 const should = require('should');
 const supertest = require('supertest');
 const config = require('../../../../server/config');
@@ -20,6 +21,38 @@ describe('Integrations API', function () {
     });
 
     const findBy = (prop, val) => object => object[prop] === val;
+
+    it('Can browse all integrations', function (done) {
+        request.get(localUtils.API.getApiQuery(`integrations/`))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200)
+            .end(function (err, {body}) {
+                if (err) {
+                    return done(err);
+                }
+
+                should.equal(body.integrations.length, 2);
+
+                // there is no enforced order for integrations which makes order different on SQLite and MySQL
+                const zapierIntegration = _.find(body.integrations, {name: 'Zapier'}); // from migrations
+                should.exist(zapierIntegration);
+
+                const testIntegration = _.find(body.integrations, {name: 'Test Integration'}); // from fixtures
+                should.exist(testIntegration);
+
+                done();
+            });
+    });
+
+    it('Can not read internal integration', function () {
+        return request.get(localUtils.API.getApiQuery(`integrations/${testUtils.DataGenerator.Content.integrations[1].id}/`))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(404);
+    });
 
     it('Can successfully create a single integration with auto generated content and admin api key', function (done) {
         request.post(localUtils.API.getApiQuery('integrations/'))
