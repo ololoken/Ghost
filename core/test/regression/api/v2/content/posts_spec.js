@@ -10,7 +10,7 @@ const config = require('../../../../../server/config');
 const ghost = testUtils.startGhost;
 let request;
 
-describe('Posts', function () {
+describe('api/v2/content/posts', function () {
     before(function () {
         return ghost()
             .then(function () {
@@ -153,5 +153,14 @@ describe('Posts', function () {
             .then((res) => {
                 localUtils.API.checkResponse(res.body.posts[0], 'post', null, null, ['id', 'title', 'slug']);
             });
+    });
+
+    it('can\'t read page with multiple keys', function () {
+        return request
+            .get(localUtils.API.getApiQuery(`posts?key=${validKey}&key=&fields=title,slug`))
+            .set('Origin', testUtils.API.getURL())
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(400);
     });
 });

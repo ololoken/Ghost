@@ -21,7 +21,9 @@ const notImplemented = function (req, res, next) {
         themes: ['POST', 'PUT'],
         subscribers: ['GET', 'PUT', 'DELETE', 'POST'],
         config: ['GET'],
-        webhooks: ['POST', 'DELETE']
+        webhooks: ['POST', 'DELETE'],
+        schedules: ['PUT'],
+        db: ['POST']
     };
 
     const match = req.url.match(/^\/(\w+)\/?/);
@@ -53,17 +55,3 @@ module.exports.authAdminApi = [
     shared.middlewares.prettyUrls,
     notImplemented
 ];
-
-/**
- * Authentication for client endpoints
- */
-module.exports.authenticateClient = function authenticateClient(client) {
-    return [
-        auth.authenticate.authenticateClient,
-        auth.authenticate.authenticateUser,
-        auth.authorize.requiresAuthorizedClient(client),
-        shared.middlewares.api.cors,
-        shared.middlewares.urlRedirects.adminRedirect,
-        shared.middlewares.prettyUrls
-    ];
-};

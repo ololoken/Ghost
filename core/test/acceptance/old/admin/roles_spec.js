@@ -35,13 +35,15 @@ describe('Roles API', function () {
                 should.exist(response);
                 should.exist(response.roles);
                 localUtils.API.checkResponse(response, 'roles');
-                response.roles.should.have.length(6);
+                response.roles.should.have.length(8);
                 localUtils.API.checkResponse(response.roles[0], 'role');
                 localUtils.API.checkResponse(response.roles[1], 'role');
                 localUtils.API.checkResponse(response.roles[2], 'role');
                 localUtils.API.checkResponse(response.roles[3], 'role');
                 localUtils.API.checkResponse(response.roles[4], 'role');
                 localUtils.API.checkResponse(response.roles[5], 'role');
+                localUtils.API.checkResponse(response.roles[6], 'role');
+                localUtils.API.checkResponse(response.roles[7], 'role');
 
                 done();
             });

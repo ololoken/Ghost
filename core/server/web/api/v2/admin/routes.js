@@ -3,7 +3,6 @@ const api = require('../../../../api');
 const apiv2 = require('../../../../api/v2');
 const mw = require('./middleware');
 
-const auth = require('../../../../services/auth');
 const shared = require('../../../shared');
 
 // Handling uploads & imports
@@ -50,10 +49,7 @@ module.exports = function apiRoutes() {
     router.del('/integrations/:id', mw.authAdminApi, http(apiv2.integrations.destroy));
 
     // ## Schedules
-    router.put('/schedules/posts/:id', [
-        auth.authenticate.authenticateClient,
-        auth.authenticate.authenticateUser
-    ], api.http(api.schedules.publishPost));
+    router.put('/schedules/:resource/:id', mw.authAdminApi, http(apiv2.schedules.publish));
 
     // ## Settings
     router.get('/settings/routes/yaml', mw.authAdminApi, http(apiv2.settings.download));
@@ -159,7 +155,7 @@ module.exports = function apiRoutes() {
     );
     router.del('/db', mw.authAdminApi, http(apiv2.db.deleteAllContent));
     router.post('/db/backup',
-        mw.authenticateClient('Ghost Backup'),
+        mw.authAdminApi,
         http(apiv2.db.backupContent)
     );
 
@@ -184,14 +180,14 @@ module.exports = function apiRoutes() {
     router.post('/authentication/passwordreset',
         shared.middlewares.brute.globalReset,
         shared.middlewares.brute.userReset,
-        api.http(api.authentication.generateResetToken)
+        http(apiv2.authentication.generateResetToken)
     );
-    router.put('/authentication/passwordreset', shared.middlewares.brute.globalBlock, api.http(api.authentication.resetPassword));
-    router.post('/authentication/invitation', api.http(api.authentication.acceptInvitation));
-    router.get('/authentication/invitation', api.http(api.authentication.isInvitation));
-    router.post('/authentication/setup', api.http(api.authentication.setup));
-    router.put('/authentication/setup', mw.authAdminApi, api.http(api.authentication.updateSetup));
-    router.get('/authentication/setup', api.http(api.authentication.isSetup));
+    router.put('/authentication/passwordreset', shared.middlewares.brute.globalBlock, http(apiv2.authentication.resetPassword));
+    router.post('/authentication/invitation', http(apiv2.authentication.acceptInvitation));
+    router.get('/authentication/invitation', http(apiv2.authentication.isInvitation));
+    router.post('/authentication/setup', http(apiv2.authentication.setup));
+    router.put('/authentication/setup', mw.authAdminApi, http(apiv2.authentication.updateSetup));
+    router.get('/authentication/setup', http(apiv2.authentication.isSetup));
 
     // ## Images
     router.post('/images/upload',

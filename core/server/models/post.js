@@ -44,7 +44,7 @@ Post = ghostBookshelf.Model.extend({
             uuid: uuid.v4(),
             status: 'draft',
             featured: false,
-            page: false,
+            type: 'post',
             visibility: 'public'
         };
     },
@@ -74,10 +74,10 @@ Post = ghostBookshelf.Model.extend({
 
     emitChange: function emitChange(event, options = {}) {
         let eventToTrigger;
-        let resourceType = this.get('page') ? 'page' : 'post';
+        let resourceType = this.get('type');
 
         if (options.usePreviousAttribute) {
-            resourceType = this.previous('page') ? 'page' : 'post';
+            resourceType = this.previous('type');
         }
 
         eventToTrigger = resourceType + '.' + event;
@@ -118,7 +118,7 @@ Post = ghostBookshelf.Model.extend({
         model.isScheduled = model.get('status') === 'scheduled';
         model.wasPublished = model.previous('status') === 'published';
         model.wasScheduled = model.previous('status') === 'scheduled';
-        model.resourceTypeChanging = model.get('page') !== model.previous('page');
+        model.resourceTypeChanging = model.get('type') !== model.previous('type');
         model.publishedAtHasChanged = model.hasDateChanged('published_at');
         model.needsReschedule = model.publishedAtHasChanged && model.isScheduled;
 
@@ -514,38 +514,6 @@ Post = ghostBookshelf.Model.extend({
     },
 
     /**
-     * @NOTE:
-     * If you are requesting models with `columns`, you try to only receive some fields of the model/s.
-     * But the model layer is complex and needs specific fields in specific situations.
-     *
-     * ### url generation was removed but default columns need to be checked before removal
-     *   - @TODO: with dynamic routing, we no longer need default columns to fetch
-     *   - because with static routing Ghost generated the url on runtime and needed the following attributes:
-     *     - `slug`: /:slug/
-     *     - `published_at`: /:year/:slug
-     *     - `author_id`: /:author/:slug, /:primary_author/:slug
-     *     - now, the UrlService pre-generates urls based on the resources
-     *     - you can ask `urlService.getUrlByResourceId(post.id)`
-     *
-     * ### events
-     *   - you call `findAll` with `columns: id`
-     *   - then you trigger `post.save()` on the response
-     *   - bookshelf events (`onSaving`) and model events (`emitChange`) are triggered
-     *   - but you only fetched the id column, this will trouble (!), because the event hooks require more
-     *     data than just the id
-     *   - @TODO: we need to disallow this (!)
-     *   - you should use `models.Post.edit(..)`
-     *      - this disallows using the `columns` option
-     *   - same for destroy - you should use `models.Post.destroy(...)`
-     *
-     * @IMPORTANT: This fn should **never** be used when updating models (models.Post.edit)!
-     *            Because the events for updating a resource require most of the fields.
-     *            This is protected by the fn `permittedOptions`.
-     */
-    defaultColumnsToFetch: function defaultColumnsToFetch() {
-        return ['id', 'published_at', 'slug', 'author_id'];
-    },
-    /**
      * If the `formats` option is not used, we return `html` be default.
      * Otherwise we return what is requested e.g. `?formats=mobiledoc,plaintext`
      */
@@ -599,7 +567,7 @@ Post = ghostBookshelf.Model.extend({
             return null;
         }
 
-        return options.context && options.context.public ? 'page:false' : 'page:false+status:published';
+        return options.context && options.context.public ? 'type:post' : 'type:post+status:published';
     },
 
     /**
@@ -620,7 +588,7 @@ Post = ghostBookshelf.Model.extend({
                 options.staticPages = _.includes(['true', '1'], options.staticPages);
             }
 
-            filter = `page:${options.staticPages}`;
+            filter = `page:${options.staticPages ? 'true' : 'false'}`;
         } else if (options.staticPages === 'all') {
             filter = 'page:[true, false]';
         }
@@ -659,7 +627,7 @@ Post = ghostBookshelf.Model.extend({
         return {
             event: event,
             resource_id: this.id || this.previous('id'),
-            resource_type: this.tableName.replace(/s$/, ''),
+            resource_type: 'post',
             actor_id: actor.id,
             actor_type: actor.type
         };
@@ -709,9 +677,9 @@ Post = ghostBookshelf.Model.extend({
             // whitelists for the `options` hash argument on methods, by method name.
             // these are the only options that can be passed to Bookshelf / Knex.
             validOptions = {
-                findOne: ['columns', 'importing', 'withRelated', 'require', 'filter'],
+                findOne: ['importing', 'withRelated', 'require', 'filter'],
                 findPage: ['status', 'staticPages'],
-                findAll: ['columns', 'filter'],
+                findAll: ['filter'],
                 destroy: ['destroyAll', 'destroyBy'],
                 edit: ['filter']
             };
@@ -781,6 +749,12 @@ Post = ghostBookshelf.Model.extend({
      */
     edit: function edit(data, unfilteredOptions) {
         let options = this.filterOptions(unfilteredOptions, 'edit', {extraAllowedProperties: ['id']});
+
+        // @TODO DELETE THIS (and the failing regression tests) when v0.1 is ded
+        if (Object.prototype.hasOwnProperty.call(data, 'page')) {
+            data.type = data.page ? 'page' : 'post';
+            delete data.page;
+        }
 
         const editPost = () => {
             options.forUpdate = true;
