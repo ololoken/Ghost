@@ -80,7 +80,7 @@ describe('Schedules API', function () {
                     published_at: moment().add(30, 'seconds').toDate(),
                     status: 'scheduled',
                     slug: 'fifth',
-                    type: 'page'
+                    page: true
                 }));
 
                 return Promise.mapSeries(resources, function (post) {
@@ -94,8 +94,8 @@ describe('Schedules API', function () {
     describe('publish', function () {
         let schedulerKey;
 
-        before(() => {
-             schedulerKey = _.find(testUtils.existingData.apiKeys, {integration: {slug: 'ghost-scheduler'}});
+        before(function () {
+            schedulerKey = _.find(testUtils.existingData.apiKeys, {integration: {slug: 'ghost-scheduler'}});
         });
 
         it('publishes posts', function () {
