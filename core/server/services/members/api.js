@@ -28,23 +28,46 @@ function getMember(data, options = {}) {
     });
 }
 
-async function setMemberMetadata(member, module, metadata) {
+async function setMetadata(module, metadata) {
     if (module !== 'stripe') {
         return;
     }
-    await models.Member.edit({
-        stripe_customers: metadata
-    }, {id: member.id, withRelated: ['stripe_customers']});
+
+    if (metadata.customer) {
+        await models.MemberStripeCustomer.upsert(metadata.customer, {
+            customer_id: metadata.customer.customer_id
+        });
+    }
+
+    if (metadata.subscription) {
+        await models.StripeCustomerSubscription.upsert(metadata.subscription, {
+            subscription_id: metadata.subscription.subscription_id
+        });
+    }
+
     return;
 }
 
-async function getMemberMetadata(member, module) {
+async function getMetadata(module, member) {
     if (module !== 'stripe') {
         return;
     }
-    const model = await models.Member.where({id: member.id}).fetch({withRelated: ['stripe_customers']});
-    const metadata = await model.related('stripe_customers');
-    return metadata.toJSON();
+
+    const customers = (await models.MemberStripeCustomer.findAll({
+        filter: `member_id:${member.id}`
+    })).toJSON();
+
+    const subscriptions = await customers.reduce(async (subscriptionsPromise, customer) => {
+        const customerSubscriptions = await models.StripeCustomerSubscription.findAll({
+            filter: `customer_id:${customer.customer_id}`
+        });
+        return (await subscriptionsPromise).concat(customerSubscriptions.toJSON());
+    }, []);
+
+    return {
+        customers: customers,
+        subscriptions: subscriptions
+    };
 }
 
 function updateMember({name}, options) {
@@ -181,8 +204,8 @@ function createApiInstance() {
         paymentConfig: {
             stripe: getStripePaymentConfig()
         },
-        setMemberMetadata,
-        getMemberMetadata,
+        setMetadata,
+        getMetadata,
         createMember,
         updateMember,
         getMember,
