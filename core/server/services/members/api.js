@@ -7,25 +7,26 @@ const ghostVersion = require('../../lib/ghost-version');
 const mail = require('../mail');
 const models = require('../../models');
 
-function createMember({email, name}) {
-    return models.Member.add({
+async function createMember({email, name, note}, options = {}) {
+    const model = await models.Member.add({
         email,
-        name
-    }).then((member) => {
-        return member.toJSON();
+        name: name || null,
+        note: note || null
     });
+    const member = model.toJSON(options);
+    return member;
 }
 
-function getMember(data, options = {}) {
+async function getMember(data, options = {}) {
     if (!data.email && !data.id) {
         return Promise.resolve(null);
     }
-    return models.Member.findOne(data, options).then((model) => {
-        if (!model) {
-            return null;
-        }
-        return model.toJSON(options);
-    });
+    const model = await models.Member.findOne(data, options);
+    if (!model) {
+        return null;
+    }
+    const member = model.toJSON(options);
+    return member;
 }
 
 async function setMetadata(module, metadata) {
@@ -70,8 +71,14 @@ async function getMetadata(module, member) {
     };
 }
 
-function updateMember({name}, options) {
-    return models.Member.edit({name}, options);
+async function updateMember({name, note}, options = {}) {
+    const model = await models.Member.edit({
+        name: name || null,
+        note: note || null
+    }, options);
+
+    const member = model.toJSON(options);
+    return member;
 }
 
 function deleteMember(options) {
