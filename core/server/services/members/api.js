@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const {URL} = require('url');
 const settingsCache = require('../settings/cache');
 const urlUtils = require('../../lib/url-utils');
@@ -6,6 +7,9 @@ const common = require('../../lib/common');
 const ghostVersion = require('../../lib/ghost-version');
 const mail = require('../mail');
 const models = require('../../models');
+const signinEmail = require('./emails/signin');
+const signupEmail = require('./emails/signup');
+const subscribeEmail = require('./emails/subscribe');
 
 async function createMember({email, name, note}, options = {}) {
     const model = await models.Member.add({
@@ -153,9 +157,30 @@ function getStripePaymentConfig() {
     };
 }
 
-function getRequirePaymentSetting() {
+function getAuthSecret() {
+    const hexSecret = settingsCache.get('members_email_auth_secret');
+    if (!hexSecret) {
+        common.logging.warn('Could not find members_email_auth_secret, using dynamically generated secret');
+        return crypto.randomBytes(64);
+    }
+    const secret = Buffer.from(hexSecret, 'hex');
+    if (secret.length < 64) {
+        common.logging.warn('members_email_auth_secret not large enough (64 bytes), using dynamically generated secret');
+        return crypto.randomBytes(64);
+    }
+    return secret;
+}
+
+function getAllowSelfSignup() {
     const subscriptionSettings = settingsCache.get('members_subscription_settings');
-    return !!subscriptionSettings.requirePaymentForSignup;
+    return subscriptionSettings.allowSelfSignup;
+}
+
+// NOTE: the function is an exact duplicate of one in GhostMailer should be extracted
+//       into a common lib once it needs to be reused anywhere else again
+function getDomain() {
+    const domain = urlUtils.urlFor('home', true).match(new RegExp('^https?://([^/:?#]+)(?:[/:?#]|$)', 'i'));
+    return domain && domain[1];
 }
 
 module.exports = createApiInstance;
@@ -174,7 +199,8 @@ function createApiInstance() {
                 signinURL.searchParams.set('action', type);
                 return signinURL.href;
             },
-            allowSelfSignup: !getRequirePaymentSetting()
+            allowSelfSignup: getAllowSelfSignup(),
+            secret: getAuthSecret()
         },
         mail: {
             transporter: {
@@ -182,29 +208,102 @@ function createApiInstance() {
                     if (process.env.NODE_ENV !== 'production') {
                         common.logging.warn(message.text);
                     }
-                    return ghostMailer.send(Object.assign({subject: 'Signin'}, message));
+                    let msg = Object.assign({
+                        subject: 'Signin',
+                        forceTextContent: true
+                    }, message);
+                    const subscriptionSettings = settingsCache.get('members_subscription_settings');
+
+                    if (subscriptionSettings && subscriptionSettings.fromAddress) {
+                        let from = `${subscriptionSettings.fromAddress}@${getDomain()}`;
+                        msg = Object.assign({from: from}, msg);
+                    }
+
+                    return ghostMailer.send(msg);
                 }
             },
-            getText(url, type) {
+            getSubject(type) {
+                const siteTitle = settingsCache.get('title');
                 switch (type) {
                 case 'subscribe':
-                    return `Click here to confirm your subscription ${url}`;
+                    return `📫 Confirm your subscription to ${siteTitle}`;
                 case 'signup':
-                    return `Click here to confirm your email address and sign up ${url}`;
+                    return `🙌 Complete your sign up to ${siteTitle}!`;
                 case 'signin':
                 default:
-                    return `Click here to sign in ${url}`;
+                    return `🔑 Secure sign in link for ${siteTitle}`;
                 }
             },
-            getHTML(url, type) {
+            getText(url, type, email) {
+                const siteTitle = settingsCache.get('title');
                 switch (type) {
                 case 'subscribe':
-                    return `<a href="${url}">Click here to confirm your subscription</a>`;
+                    return `
+                        Hey there,
+
+                        You're one tap away from subscribing to ${siteTitle} — please confirm your email address with this link:
+
+                        ${url}
+
+                        For your security, the link will expire in 10 minutes time.
+
+                        All the best!
+                        The team at ${siteTitle}
+
+                        ---
+
+                        Sent to ${email}
+                        If you did not make this request, you can simply delete this message. You will not be subscribed.
+                        `;
                 case 'signup':
-                    return `<a href="${url}">Click here to confirm your email address and sign up</a>`;
+                    return `
+                        Hey there!
+
+                        Thanks for signing up for ${siteTitle} — use this link to complete the sign up process and be automatically signed in:
+
+                        ${url}
+
+                        For your security, the link will expire in 10 minutes time.
+
+                        See you soon!
+                        The team at ${siteTitle}
+
+                        ---
+
+                        Sent to ${email}
+                        If you did not make this request, you can simply delete this message. You will not be signed up, and no account will be created for you.
+                        `;
                 case 'signin':
                 default:
-                    return `<a href="${url}">Click here to sign in</a>`;
+                    return `
+                        Hey there,
+
+                        Welcome back! Use this link to securely sign in to your ${siteTitle} account:
+
+                        ${url}
+
+                        For your security, the link will expire in 10 minutes time.
+
+                        See you soon!
+                        The team at ${siteTitle}
+
+                        ---
+
+                        Sent to ${email}
+                        If you did not make this request, you can safely ignore this email.
+                        `;
+                }
+            },
+            getHTML(url, type, email) {
+                const siteTitle = settingsCache.get('title');
+                switch (type) {
+                case 'subscribe':
+                    return subscribeEmail({url, email, siteTitle});
+                case 'signup':
+                    return signupEmail({url, email, siteTitle});
+                case 'signin':
+                default:
+                    return signinEmail({url, email, siteTitle});
                 }
             }
         },
