@@ -123,35 +123,23 @@ describe('Frontend Routing', function () {
                     .end(doEnd(done));
             });
 
-            it('should respond with html for valid url', function (done) {
+            it('should respond with html for valid post url', function (done) {
                 request.get('/welcome/')
                     .expect('Content-Type', /html/)
                     .expect('Cache-Control', testUtils.cacheRules.public)
                     .expect(200)
                     .end(function (err, res) {
-                        if (err) {
-                            return done(err);
-                        }
-
                         var $ = cheerio.load(res.text);
-
-                        should.not.exist(res.headers['x-cache-invalidate']);
-                        should.not.exist(res.headers['X-CSRF-Token']);
-                        should.not.exist(res.headers['set-cookie']);
-                        should.exist(res.headers.date);
 
                         // NOTE: This is the title from the settings.
                         $('title').text().should.equal('Welcome to Ghost');
 
-                        // @TODO: change or remove?
-                        // $('.content .post').length.should.equal(1);
-                        // $('.poweredby').text().should.equal('Proudly published with Ghost');
-                        // $('body.post-template').length.should.equal(1);
-                        // $('body.tag-getting-started').length.should.equal(1);
-                        // $('article.post').length.should.equal(1);
-                        // $('article.tag-getting-started').length.should.equal(1);
+                        $('body.post-template').length.should.equal(1);
+                        $('body.tag-getting-started').length.should.equal(1);
+                        $('article.post').length.should.equal(2);
+                        $('article.tag-getting-started').length.should.equal(2);
 
-                        done();
+                        doEnd(done)(err, res);
                     });
             });
 
@@ -189,6 +177,41 @@ describe('Frontend Routing', function () {
                     .expect('Cache-Control', testUtils.cacheRules.private)
                     .expect(404)
                     .expect(/Page not found/)
+                    .end(doEnd(done));
+            });
+        });
+
+        describe('Post edit with admin redirects disabled', function () {
+            before(function () {
+                configUtils.set('admin:redirects', false);
+
+                return ghost({forceStart: true})
+                    .then(function () {
+                        request = supertest.agent(config.get('url'));
+                    });
+            });
+
+            after(function () {
+                configUtils.restore();
+
+                return ghost({forceStart: true})
+                    .then(function () {
+                        request = supertest.agent(config.get('url'));
+                    });
+            });
+
+            it('should redirect without slash', function (done) {
+                request.get('/welcome/edit')
+                    .expect('Location', '/welcome/edit/')
+                    .expect('Cache-Control', testUtils.cacheRules.year)
+                    .expect(301)
+                    .end(doEnd(done));
+            });
+
+            it('should not redirect to editor', function (done) {
+                request.get('/welcome/edit/')
+                    .expect('Cache-Control', testUtils.cacheRules.private)
+                    .expect(404)
                     .end(doEnd(done));
             });
         });
@@ -320,7 +343,20 @@ describe('Frontend Routing', function () {
                     .expect('Content-Type', /html/)
                     .expect('Cache-Control', testUtils.cacheRules.public)
                     .expect(200)
-                    .end(doEnd(done));
+                    .end(function (err, res) {
+                        var $ = cheerio.load(res.text);
+
+                        should.not.exist(res.headers['x-cache-invalidate']);
+                        should.not.exist(res.headers['X-CSRF-Token']);
+                        should.not.exist(res.headers['set-cookie']);
+                        should.exist(res.headers.date);
+
+                        $('title').text().should.equal('Ghost');
+                        $('body.page-template').length.should.equal(1);
+                        $('article.post').length.should.equal(1);
+
+                        doEnd(done)(err, res);
+                    });
             });
 
             it('should redirect without slash', function (done) {
@@ -357,12 +393,51 @@ describe('Frontend Routing', function () {
                 });
             });
 
+            describe('edit with admin redirects disabled', function () {
+                before(function (done) {
+                    configUtils.set('admin:redirects', false);
+
+                    ghost({forceStart: true})
+                        .then(function () {
+                            request = supertest.agent(config.get('url'));
+                            addPosts(done);
+                        });
+                });
+
+                after(function (done) {
+                    configUtils.restore();
+
+                    ghost({forceStart: true})
+                        .then(function () {
+                            request = supertest.agent(config.get('url'));
+                            addPosts(done);
+                        });
+                });
+
+                it('should redirect without slash', function (done) {
+                    request.get('/static-page-test/edit')
+                        .expect('Location', '/static-page-test/edit/')
+                        .expect('Cache-Control', testUtils.cacheRules.year)
+                        .expect(301)
+                        .end(doEnd(done));
+                });
+
+                it('should not redirect to editor', function (done) {
+                    request.get('/static-page-test/edit/')
+                        .expect(404)
+                        .expect('Cache-Control', testUtils.cacheRules.private)
+                        .end(doEnd(done));
+                });
+            });
+
             describe('amp', function () {
                 it('should 404 for amp parameter', function (done) {
+                    // NOTE: only post pages are supported so the router doesn't have a way to distinguish if
+                    //       the request was done after AMP 'Page' or 'Post'
                     request.get('/static-page-test/amp/')
                         .expect('Cache-Control', testUtils.cacheRules.private)
                         .expect(404)
-                        .expect(/Page not found/)
+                        .expect(/Post not found/)
                         .end(doEnd(done));
                 });
             });
