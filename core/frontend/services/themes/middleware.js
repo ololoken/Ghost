@@ -6,7 +6,6 @@ const common = require('../../../server/lib/common');
 const settingsCache = require('../../../server/services/settings/cache');
 const labs = require('../../../server/services/labs');
 const activeTheme = require('./active');
-const themeConfigAllowedKeys = require('./config').allowedKeys;
 
 // ### Ensure Active Theme
 // Ensure there's a properly set & mounted active theme before attempting to serve a site request
