@@ -250,7 +250,15 @@ describe('User API', function () {
                 return request
                     .delete(localUtils.API.getApiQuery(`users/${userId}`))
                     .set('Origin', config.get('url'))
-                    .expect(204);
+                    .expect(200);
+            })
+            .then((res) => {
+                should.exist(res.body.meta.filename);
+
+                return request
+                    .get(localUtils.API.getApiQuery(`db/?filename=${res.body.meta.filename}/`))
+                    .set('Origin', config.get('url'))
+                    .expect(200);
             })
             .then(() => {
                 return request
