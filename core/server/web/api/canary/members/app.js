@@ -13,6 +13,10 @@ module.exports = function setupMembersApiApp() {
     const apiApp = express();
     apiApp.use(sentry.requestHandler);
 
+    // Make sure `req.ip` is correct for proxied requests
+    // (X-Forwarded-Proto header will be checked, if present)
+    apiApp.enable('trust proxy');
+
     // Entire app is behind labs flag
     apiApp.use(labs.members);
 
@@ -23,6 +27,7 @@ module.exports = function setupMembersApiApp() {
     // NOTE: this is wrapped in a function to ensure we always go via the getter
     apiApp.post('/send-magic-link', (req, res, next) => membersService.api.middleware.sendMagicLink(req, res, next));
     apiApp.post('/create-stripe-checkout-session', (req, res, next) => membersService.api.middleware.createCheckoutSession(req, res, next));
+    apiApp.post('/create-stripe-setup-session', (req, res, next) => membersService.api.middleware.createCheckoutSetupSession(req, res, next));
     apiApp.put('/subscriptions/:id', (req, res, next) => membersService.api.middleware.updateSubscription(req, res, next));
 
     // API error handling
