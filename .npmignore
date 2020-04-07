@@ -35,11 +35,12 @@ core/built/**/*.map
 core/built/**/test-*
 core/built/**/tests-*
 core/client/**
-core/test/**
+test/**
 CONTRIBUTING.md
 content/themes/casper/SECURITY.md
 SECURITY.md
 .travis.yml
+renovate.json
 *.html
 !core/server/web/admin/views/**
 core/server/web/admin/views/.gitkeep

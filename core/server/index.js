@@ -19,6 +19,7 @@ let parentApp;
 
 // Frontend Components
 const themeService = require('../frontend/services/themes');
+const appService = require('../frontend/services/apps');
 
 function initialiseServices() {
     // CASE: When Ghost is ready with bootstrapping (db migrations etc.), we can trigger the router creation.
@@ -30,7 +31,6 @@ function initialiseServices() {
     routing.bootstrap.start(themeService.getApiVersion());
 
     const permissions = require('./services/permissions'),
-        apps = require('./services/apps'),
         xmlrpc = require('./services/xmlrpc'),
         slack = require('./services/slack'),
         {mega} = require('./services/mega'),
@@ -46,18 +46,14 @@ function initialiseServices() {
         slack.listen(),
         mega.listen(),
         webhooks.listen(),
-        apps.init(),
+        appService.init(),
         scheduling.init({
-            schedulerUrl: config.get('scheduling').schedulerUrl,
-            active: config.get('scheduling').active,
             // NOTE: When changing API version need to consider how to migrate custom scheduling adapters
             //       that rely on URL to lookup persisted scheduled records (jobs, etc.). Ref: https://github.com/TryGhost/Ghost/pull/10726#issuecomment-489557162
-            apiUrl: urlUtils.urlFor('api', {version: 'v3', versionType: 'admin'}, true),
-            internalPath: config.get('paths').internalSchedulingPath,
-            contentPath: config.getContentPath('scheduling')
+            apiUrl: urlUtils.urlFor('api', {version: 'v3', versionType: 'admin'}, true)
         })
     ).then(function () {
-        debug('XMLRPC, Slack, MEGA, Webhooks, Apps, Scheduling, Permissions done');
+        debug('XMLRPC, Slack, MEGA, Webhooks, Scheduling, Permissions done');
 
         // Initialise analytics events
         if (config.get('segment:key')) {
