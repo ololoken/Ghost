@@ -289,10 +289,10 @@
   dependencies:
     defer-to-connect "^2.0.0"
 
-"@tryghost/adapter-manager@0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@tryghost/adapter-manager/-/adapter-manager-0.1.0.tgz#b95178b1d2f89de8b6a243ee312de61237c6a973"
-  integrity sha512-Z5Pnhd/b/EBsl6mCJdwmdVEESWnurgD/GAVma0g8GMuUECg0NCynyVJtvszKFny9484OagWzrpTUi7F5l4jp3Q==
+"@tryghost/adapter-manager@0.1.2":
+  version "0.1.2"
+  resolved "https://registry.yarnpkg.com/@tryghost/adapter-manager/-/adapter-manager-0.1.2.tgz#29bcbe220f70603b51d30a9ee734f257a4fe3dbc"
+  integrity sha512-vYG//0zXqPMzZZkw3vZXeyShsKggzPDPEaDaHwByLqbTHi8kj3bQVRq3GkmoQhx01KJB0eQwMaz8tZihU2KsyA==
   dependencies:
     "@tryghost/errors" "^0.1.1"
 
@@ -2917,10 +2917,10 @@ express-hbs@2.3.3:
   optionalDependencies:
     js-beautify "1.11.0"
 
-express-jwt@5.3.1:
-  version "5.3.1"
-  resolved "https://registry.yarnpkg.com/express-jwt/-/express-jwt-5.3.1.tgz#66f05c7dddb5409c037346a98b88965bb10ea4ae"
-  integrity sha512-1C9RNq0wMp/JvsH/qZMlg3SIPvKu14YkZ4YYv7gJQ1Vq+Dv8LH9tLKenS5vMNth45gTlEUGx+ycp9IHIlaHP/g==
+express-jwt@5.3.3:
+  version "5.3.3"
+  resolved "https://registry.yarnpkg.com/express-jwt/-/express-jwt-5.3.3.tgz#e557b4a63dd34c5ddd6ad81452738386314cc243"
+  integrity sha512-UdB8p5O8vGYTKm3SfREnLgVGIGEHcL3lrVyi3ebEX2qhMuagN623ju7ywWis+qYL+CXE7G1qPc2bCPBAg2MxZQ==
   dependencies:
     async "^1.5.0"
     express-unless "^0.3.0"

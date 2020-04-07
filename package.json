@@ -1,6 +1,6 @@
 {
   "name": "ghost",
-  "version": "3.13.0",
+  "version": "3.13.1",
   "description": "The professional publishing platform",
   "author": "Ghost Foundation",
   "homepage": "https://ghost.org",
@@ -41,7 +41,7 @@
   "dependencies": {
     "@nexes/nql": "0.3.0",
     "@sentry/node": "5.15.4",
-    "@tryghost/adapter-manager": "0.1.0",
+    "@tryghost/adapter-manager": "0.1.2",
     "@tryghost/errors": "0.1.1",
     "@tryghost/helpers": "1.1.25",
     "@tryghost/image-transform": "0.2.0",
@@ -77,7 +77,7 @@
     "express": "4.17.1",
     "express-brute": "1.0.1",
     "express-hbs": "2.3.3",
-    "express-jwt": "5.3.1",
+    "express-jwt": "5.3.3",
     "express-query-boolean": "2.0.0",
     "express-session": "1.17.0",
     "fs-extra": "9.0.0",
