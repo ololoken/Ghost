@@ -1,4 +1,5 @@
 const ghostBookshelf = require('./base');
+const common = require('../lib/common');
 
 let Label, Labels;
 
@@ -107,6 +108,12 @@ Label = ghostBookshelf.Model.extend({
         return this.forge({id: options.id})
             .fetch(options)
             .then(function destroyLabelsAndMember(label) {
+                if (!label) {
+                    return Promise.reject(new common.errors.NotFoundError({
+                        message: common.i18n.t('errors.api.labels.labelNotFound')
+                    }));
+                }
+
                 return label.related('members')
                     .detach(null, options)
                     .then(function destroyLabels() {

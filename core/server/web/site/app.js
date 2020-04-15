@@ -3,7 +3,7 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const {URL} = require('url');
-const common = require('../../lib/common');
+const errors = require('@tryghost/errors');
 
 // App requires
 const config = require('../../config');
@@ -40,7 +40,7 @@ const corsOptionsDelegate = function corsOptionsDelegate(req, callback) {
     try {
         originUrl = new URL(origin);
     } catch (err) {
-        return callback(new common.errors.BadRequestError({err}));
+        return callback(new errors.BadRequestError({err}));
     }
 
     // originUrl will definitely exist here because according to WHATWG URL spec
@@ -130,7 +130,7 @@ module.exports = function setupSiteApp(options = {}) {
     // We do this here, at the top level, because helpers require so much stuff.
     // Moving this to being inside themes, where it probably should be requires the proxy to be refactored
     // Else we end up with circular dependencies
-    require('../../../frontend/helpers').loadCoreHelpers();
+    themeService.loadCoreHelpers();
     debug('Helpers done');
 
     // Members middleware
