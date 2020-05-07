@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require('../../../../../shared/express');
 const apiCanary = require('../../../../api/canary');
 const apiMw = require('../../middleware');
 const mw = require('./middleware');
@@ -6,7 +6,7 @@ const mw = require('./middleware');
 const shared = require('../../../shared');
 
 module.exports = function apiRoutes() {
-    const router = express.Router();
+    const router = express.Router('canary admin');
 
     // alias delete with del
     router.del = router.delete;
@@ -42,6 +42,7 @@ module.exports = function apiRoutes() {
     router.get('/integrations', mw.authAdminApi, http(apiCanary.integrations.browse));
     router.get('/integrations/:id', mw.authAdminApi, http(apiCanary.integrations.read));
     router.post('/integrations', mw.authAdminApi, http(apiCanary.integrations.add));
+    router.post('/integrations/:id/api_key/:keyid/refresh', mw.authAdminApi, http(apiCanary.integrations.edit));
     router.put('/integrations/:id', mw.authAdminApi, http(apiCanary.integrations.edit));
     router.del('/integrations/:id', mw.authAdminApi, http(apiCanary.integrations.destroy));
 

@@ -15,8 +15,7 @@ const sitemapHandler = require('../../../frontend/services/sitemap/handler');
 const appService = require('../../../frontend/services/apps');
 const themeService = require('../../../frontend/services/themes');
 const themeMiddleware = themeService.middleware;
-const membersService = require('../../services/members');
-const membersMiddleware = membersService.middleware;
+const membersMiddleware = require('../../services/members').middleware;
 const siteRoutes = require('./routes');
 const shared = require('../shared');
 const mw = require('./middleware');
@@ -76,7 +75,7 @@ function SiteRouter(req, res, next) {
 module.exports = function setupSiteApp(options = {}) {
     debug('Site setup start');
 
-    const siteApp = express();
+    const siteApp = express('site');
 
     // ## App - specific code
     // set the view engine
@@ -91,10 +90,6 @@ module.exports = function setupSiteApp(options = {}) {
 
     // (Optionally) redirect any requests to /ghost to the admin panel
     siteApp.use(mw.redirectGhostToAdmin());
-
-    // force SSL if blog url is set to https. The redirects handling must happen before asset and page routing,
-    // otherwise we serve assets/pages with http. This can cause mixed content warnings in the admin client.
-    siteApp.use(shared.middlewares.urlRedirects.frontendSSLRedirect);
 
     // Static content/assets
     // @TODO make sure all of these have a local 404 error handler
@@ -130,15 +125,8 @@ module.exports = function setupSiteApp(options = {}) {
     themeService.loadCoreHelpers();
     debug('Helpers done');
 
-    // Members middleware
-    // Initializes members specific routes as well as assigns members specific data to the req/res objects
-    siteApp.get('/members/ssr/member', shared.middlewares.labs.members, membersMiddleware.getMemberData);
-    siteApp.get('/members/ssr', shared.middlewares.labs.members, membersMiddleware.getIdentityToken);
-    siteApp.delete('/members/ssr', shared.middlewares.labs.members, membersMiddleware.deleteSession);
-    siteApp.post('/members/webhooks/stripe', shared.middlewares.labs.members, membersMiddleware.stripeWebhooks);
-
-    // Currently global handling for signing in with ?token=
-    siteApp.use(membersMiddleware.createSessionFromToken);
+    // Global handling for member session, ensures a member is logged in to the frontend
+    siteApp.use(membersMiddleware.loadMemberSession);
 
     // Theme middleware
     // This should happen AFTER any shared assets are served, as it only changes things to do with templates

@@ -1,6 +1,6 @@
 const should = require('should');
 const sinon = require('sinon');
-const express = require('express');
+const express = require('../../../../../core/shared/express');
 const serveFavicon = require('../../../../../core/server/web/site/middleware/serve-favicon');
 const settingsCache = require('../../../../../core/server/services/settings/cache');
 const storage = require('../../../../../core/server/adapters/storage');
@@ -8,13 +8,18 @@ const configUtils = require('../../../../utils/configUtils');
 const path = require('path');
 
 describe('Serve Favicon', function () {
-    let req, res, next, blogApp, localSettingsCache = {}, originalStoragePath;
+    let req;
+    let res;
+    let next;
+    let blogApp;
+    let localSettingsCache = {};
+    let originalStoragePath;
 
     beforeEach(function () {
         req = sinon.spy();
         res = sinon.spy();
         next = sinon.spy();
-        blogApp = express();
+        blogApp = express('test');
         req.app = blogApp;
 
         sinon.stub(settingsCache, 'get').callsFake(function (key) {

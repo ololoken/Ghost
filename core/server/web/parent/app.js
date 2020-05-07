@@ -7,10 +7,11 @@ const netjet = require('netjet');
 const mw = require('./middleware');
 const escapeRegExp = require('lodash.escaperegexp');
 const {URL} = require('url');
+const shared = require('../shared');
 
 module.exports = function setupParentApp(options = {}) {
     debug('ParentApp setup start');
-    const parentApp = express();
+    const parentApp = express('parent');
 
     parentApp.use(mw.requestId);
     parentApp.use(mw.logRequest);
@@ -37,13 +38,13 @@ module.exports = function setupParentApp(options = {}) {
     parentApp.use(mw.ghostLocals);
 
     // Mount the express apps on the parentApp
-
     const backendHost = config.get('admin:url') ? (new URL(config.get('admin:url')).hostname) : '';
     const frontendHost = new URL(config.get('url')).hostname;
     const hasSeparateBackendHost = backendHost && backendHost !== frontendHost;
 
+    // BACKEND
     // Wrap the admin and API apps into a single express app for use with vhost
-    const backendApp = express();
+    const backendApp = express('backend');
     backendApp.use('/ghost/api', require('../api')());
     backendApp.use('/ghost/.well-known', require('../well-known')());
     backendApp.use('/ghost', require('../../services/auth/session').createSessionFromToken, require('../admin')());
@@ -53,12 +54,22 @@ module.exports = function setupParentApp(options = {}) {
     const backendVhostArg = hasSeparateBackendHost && backendHost ? backendHost : /.*/;
     parentApp.use(vhost(backendVhostArg, backendApp));
 
-    // BLOG
+    // FRONTEND
+    const frontendApp = express('frontend');
+
+    // Force SSL if blog url is set to https. The redirects handling must happen before asset and page routing,
+    // otherwise we serve assets/pages with http. This can cause mixed content warnings in the admin client.
+    frontendApp.use(shared.middlewares.urlRedirects.frontendSSLRedirect);
+
+    frontendApp.use('/members', require('../members')());
+    frontendApp.use('/', require('../site')(options));
+
+    // SITE + MEMBERS
     // with a separate admin url we adjust the frontend vhost to exclude requests to that host, otherwise serve on all hosts
     const frontendVhostArg = (hasSeparateBackendHost && backendHost) ?
         new RegExp(`^(?!${escapeRegExp(backendHost)}).*`) : /.*/;
 
-    parentApp.use(vhost(frontendVhostArg, require('../site')(options)));
+    parentApp.use(vhost(frontendVhostArg, frontendApp));
 
     debug('ParentApp setup end');
 
