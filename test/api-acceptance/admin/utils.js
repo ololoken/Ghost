@@ -19,6 +19,7 @@ const expectedProperties = {
     invites: ['invites', 'meta'],
     themes: ['themes'],
     actions: ['actions', 'meta'],
+    members: ['members', 'meta'],
 
     action: ['id', 'resource_type', 'actor_type', 'event', 'created_at', 'actor'],
 
@@ -87,6 +88,13 @@ const expectedProperties = {
     subscriber: _(schema.subscribers)
         .keys()
     ,
+    member: _(schema.members)
+        .keys()
+        .concat('avatar_image')
+        .concat('comped')
+        .concat('labels')
+    ,
+    member_signin_url: ['member_id', 'url'],
     role: _(schema.roles)
         .keys()
     ,
