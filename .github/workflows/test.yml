@@ -47,7 +47,14 @@ jobs:
       - run: grunt test-acceptance --verbose
       - run: grunt test-unit --verbose
       - run: grunt test-regression --verbose
-        if: startsWith(github.head_ref, 'renovate/') || github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'all-tests')
+
+      #- uses: 8398a7/action-slack@v3
+      #  if: ${{ failure() }} && github.ref == 'refs/heads/master'
+      #  with:
+      #    status: ${{ job.status }}
+      #    fields: repo,message,commit,author,ref
+      #  env:
+      #    SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   ghost-cli:
     name: Ghost-CLI
@@ -80,3 +87,11 @@ jobs:
           DIR=$(mktemp -d)
           ghost install v2 --local -d $DIR
           ghost update -f -d $DIR --zip $GITHUB_WORKSPACE/ghost.zip
+
+      #- uses: 8398a7/action-slack@v3
+      #  if: ${{ failure() }} && github.ref == 'refs/heads/master'
+      #  with:
+      #    status: ${{ job.status }}
+      #    fields: repo,message,commit,author,ref
+      #  env:
+      #    SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
