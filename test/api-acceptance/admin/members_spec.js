@@ -42,7 +42,7 @@ describe('Members API', function () {
                 const jsonResponse = res.body;
                 should.exist(jsonResponse);
                 should.exist(jsonResponse.members);
-                jsonResponse.members.should.have.length(2);
+                jsonResponse.members.should.have.length(3);
                 localUtils.API.checkResponse(jsonResponse.members[0], 'member', 'stripe');
 
                 testUtils.API.isISO8601(jsonResponse.members[0].created_at).should.be.true();
@@ -51,7 +51,7 @@ describe('Members API', function () {
                 jsonResponse.meta.pagination.should.have.property('page', 1);
                 jsonResponse.meta.pagination.should.have.property('limit', 15);
                 jsonResponse.meta.pagination.should.have.property('pages', 1);
-                jsonResponse.meta.pagination.should.have.property('total', 2);
+                jsonResponse.meta.pagination.should.have.property('total', 3);
                 jsonResponse.meta.pagination.should.have.property('next', null);
                 jsonResponse.meta.pagination.should.have.property('prev', null);
             });
@@ -90,6 +90,26 @@ describe('Members API', function () {
                 should.exist(jsonResponse.members);
                 jsonResponse.members.should.have.length(1);
                 jsonResponse.members[0].email.should.equal('member1@test.com');
+                localUtils.API.checkResponse(jsonResponse, 'members');
+                localUtils.API.checkResponse(jsonResponse.members[0], 'member', 'stripe');
+                localUtils.API.checkResponse(jsonResponse.meta.pagination, 'pagination');
+            });
+    });
+
+    it('Can browse with paid', function () {
+        return request
+            .get(localUtils.API.getApiQuery('members/?paid=true'))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200)
+            .then((res) => {
+                should.not.exist(res.headers['x-cache-invalidate']);
+                const jsonResponse = res.body;
+                should.exist(jsonResponse);
+                should.exist(jsonResponse.members);
+                jsonResponse.members.should.have.length(1);
+                jsonResponse.members[0].email.should.equal('paid@test.com');
                 localUtils.API.checkResponse(jsonResponse, 'members');
                 localUtils.API.checkResponse(jsonResponse.members[0], 'member', 'stripe');
                 localUtils.API.checkResponse(jsonResponse.meta.pagination, 'pagination');
@@ -239,9 +259,54 @@ describe('Members API', function () {
             });
     });
 
+    it('Can validate import data', function () {
+        const member = {
+            name: 'test',
+            email: 'memberTestAdd@test.com'
+        };
+
+        return request
+            .post(localUtils.API.getApiQuery(`members/upload/validate`))
+            .send({members: [member]})
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200)
+            .then((res) => {
+                should.not.exist(res.headers['x-cache-invalidate']);
+                const jsonResponse = res.body;
+                should.exist(jsonResponse);
+                should.not.exist(jsonResponse.members);
+            });
+    });
+
+    it('Fails to validate import data when stripe_customer_id is present but Stripe is not connected', function () {
+        const member = {
+            name: 'test',
+            email: 'memberTestAdd@test.com',
+            stripe_customer_id: 'cus_XXXXX'
+        };
+
+        return request
+            .post(localUtils.API.getApiQuery(`members/upload/validate`))
+            .send({members: [member]})
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(422)
+            .then((res) => {
+                should.not.exist(res.headers['x-cache-invalidate']);
+                const jsonResponse = res.body;
+                should.exist(jsonResponse);
+                should.exist(jsonResponse.errors);
+                jsonResponse.errors[0].message.should.match(/Member not imported/i);
+                jsonResponse.errors[0].context.should.match(/no Stripe account connected/i);
+            });
+    });
+
     it('Can export CSV', function () {
         return request
-            .get(localUtils.API.getApiQuery(`members/csv/`))
+            .get(localUtils.API.getApiQuery(`members/upload/`))
             .set('Origin', config.get('url'))
             .expect('Content-Type', /text\/csv/)
             .expect('Cache-Control', testUtils.cacheRules.private)
@@ -257,7 +322,7 @@ describe('Members API', function () {
 
     it('Can import CSV', function () {
         return request
-            .post(localUtils.API.getApiQuery(`members/csv/`))
+            .post(localUtils.API.getApiQuery(`members/upload/`))
             .attach('membersfile', path.join(__dirname, '/../../utils/fixtures/csv/valid-members-import.csv'))
             .set('Origin', config.get('url'))
             .expect('Content-Type', /json/)
@@ -271,9 +336,8 @@ describe('Members API', function () {
                 should.exist(jsonResponse.meta);
                 should.exist(jsonResponse.meta.stats);
 
-                jsonResponse.meta.stats.imported.should.equal(2);
-                jsonResponse.meta.stats.duplicates.should.equal(0);
-                jsonResponse.meta.stats.invalid.should.equal(0);
+                jsonResponse.meta.stats.imported.count.should.equal(2);
+                jsonResponse.meta.stats.invalid.count.should.equal(0);
             });
     });
 
@@ -294,8 +358,8 @@ describe('Members API', function () {
                 should.exist(jsonResponse.total_on_date);
                 should.exist(jsonResponse.new_today);
 
-                // 2 from fixtures, 2 from above posts, 2 from above import
-                jsonResponse.total.should.equal(6);
+                // 3 from fixtures, 2 from above posts, 2 from above import
+                jsonResponse.total.should.equal(7);
             });
     });
 });

@@ -138,7 +138,7 @@ describe('Members API', function () {
 
     it('Can import CSV with minimum one field', function () {
         return request
-            .post(localUtils.API.getApiQuery(`members/csv/`))
+            .post(localUtils.API.getApiQuery(`members/upload/`))
             .field('labels', ['global-label-1', 'global-label-1'])
             .attach('membersfile', path.join(__dirname, '/../../../../utils/fixtures/csv/valid-members-labels.csv'))
             .set('Origin', config.get('url'))
@@ -153,9 +153,8 @@ describe('Members API', function () {
                 should.exist(jsonResponse.meta);
                 should.exist(jsonResponse.meta.stats);
 
-                jsonResponse.meta.stats.imported.should.equal(2);
-                jsonResponse.meta.stats.duplicates.should.equal(0);
-                jsonResponse.meta.stats.invalid.should.equal(0);
+                jsonResponse.meta.stats.imported.count.should.equal(2);
+                jsonResponse.meta.stats.invalid.count.should.equal(0);
             })
             .then(() => {
                 return request
@@ -187,7 +186,7 @@ describe('Members API', function () {
 
     it('Can import CSV with labels and provide additional labels', function () {
         return request
-            .post(localUtils.API.getApiQuery(`members/csv/`))
+            .post(localUtils.API.getApiQuery(`members/upload/`))
             .attach('membersfile', path.join(__dirname, '/../../../../utils/fixtures/csv/valid-members-defaults.csv'))
 
             .set('Origin', config.get('url'))
@@ -202,9 +201,8 @@ describe('Members API', function () {
                 should.exist(jsonResponse.meta);
                 should.exist(jsonResponse.meta.stats);
 
-                jsonResponse.meta.stats.imported.should.equal(2);
-                jsonResponse.meta.stats.duplicates.should.equal(0);
-                jsonResponse.meta.stats.invalid.should.equal(0);
+                jsonResponse.meta.stats.imported.count.should.equal(2);
+                jsonResponse.meta.stats.invalid.count.should.equal(0);
             })
             .then(() => {
                 return request
@@ -237,7 +235,7 @@ describe('Members API', function () {
 
     it('Fails to import members with stripe_customer_id', function () {
         return request
-            .post(localUtils.API.getApiQuery(`members/csv/`))
+            .post(localUtils.API.getApiQuery(`members/upload/`))
             .attach('membersfile', path.join(__dirname, '/../../../../utils/fixtures/csv/members-with-stripe-ids.csv'))
             .set('Origin', config.get('url'))
             .expect('Content-Type', /json/)
@@ -251,9 +249,8 @@ describe('Members API', function () {
                 should.exist(jsonResponse.meta);
                 should.exist(jsonResponse.meta.stats);
 
-                jsonResponse.meta.stats.imported.should.equal(0);
-                jsonResponse.meta.stats.duplicates.should.equal(0);
-                jsonResponse.meta.stats.invalid.should.equal(2);
+                jsonResponse.meta.stats.imported.count.should.equal(0);
+                jsonResponse.meta.stats.invalid.count.should.equal(2);
             });
     });
 
@@ -276,8 +273,8 @@ describe('Members API', function () {
                 should.exist(jsonResponse.total_on_date);
                 should.exist(jsonResponse.new_today);
 
-                // 2 from fixtures and 5 imported in previous tests
-                jsonResponse.total.should.equal(6);
+                // 3 from fixtures and 5 imported in previous tests
+                jsonResponse.total.should.equal(7);
             });
     });
 
@@ -300,8 +297,8 @@ describe('Members API', function () {
                 should.exist(jsonResponse.total_on_date);
                 should.exist(jsonResponse.new_today);
 
-                // 2 from fixtures and 5 imported in previous tests
-                jsonResponse.total.should.equal(6);
+                // 3 from fixtures and 5 imported in previous tests
+                jsonResponse.total.should.equal(7);
             });
     });
 
@@ -324,8 +321,8 @@ describe('Members API', function () {
                 should.exist(jsonResponse.total_on_date);
                 should.exist(jsonResponse.new_today);
 
-                // 2 from fixtures and 5 imported in previous tests
-                jsonResponse.total.should.equal(6);
+                // 3 from fixtures and 5 imported in previous tests
+                jsonResponse.total.should.equal(7);
             });
     });
 
