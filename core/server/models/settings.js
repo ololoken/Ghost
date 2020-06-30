@@ -3,6 +3,7 @@ const _ = require('lodash');
 const uuid = require('uuid');
 const crypto = require('crypto');
 const keypair = require('keypair');
+const ObjectID = require('bson-objectid');
 const ghostBookshelf = require('./base');
 const {i18n} = require('../lib/common');
 const errors = require('@tryghost/errors');
@@ -46,7 +47,6 @@ function parseDefaultSettings() {
         public_hash: () => crypto.randomBytes(15).toString('hex'),
         // @TODO: session_secret would ideally be named "admin_session_secret"
         session_secret: () => crypto.randomBytes(32).toString('hex'),
-        members_session_secret: () => crypto.randomBytes(32).toString('hex'),
         theme_session_secret: () => crypto.randomBytes(32).toString('hex'),
         members_public_key: () => getMembersKey('public'),
         members_private_key: () => getMembersKey('private'),
@@ -58,6 +58,7 @@ function parseDefaultSettings() {
     _.each(defaultSettingsInCategories, function each(settings, categoryName) {
         _.each(settings, function each(setting, settingName) {
             setting.type = categoryName;
+            setting.group = categoryName;
             setting.key = settingName;
 
             setting.getDefaultValue = function getDefaultValue() {
@@ -219,12 +220,34 @@ Settings = ghostBookshelf.Model.extend({
         });
     },
 
-    populateDefaults: function populateDefaults(unfilteredOptions) {
+    populateDefaults: async function populateDefaults(unfilteredOptions) {
         const options = this.filterOptions(unfilteredOptions, 'populateDefaults');
         const self = this;
 
         if (!options.context) {
             options.context = internalContext.context;
+        }
+
+        // this is required for sqlite to pick up the columns after db init
+        await ghostBookshelf.knex.destroy();
+        await ghostBookshelf.knex.initialize();
+
+        // fetch available columns to avoid populating columns not yet created by migrations
+        const columnInfo = await ghostBookshelf.knex.table('settings').columnInfo();
+        const columns = Object.keys(columnInfo);
+
+        // fetch other data that is used when inserting new settings
+        const date = ghostBookshelf.knex.raw('CURRENT_TIMESTAMP');
+        let owner;
+        try {
+            owner = await ghostBookshelf.model('User').getOwnerUser();
+        } catch (e) {
+            // in some tests the owner is deleted and not recreated before setup
+            if (e.errorType === 'NotFoundError') {
+                owner = {id: 1};
+            } else {
+                throw e;
+            }
         }
 
         return this
@@ -240,7 +263,20 @@ Settings = ghostBookshelf.Model.extend({
                     const isMissingFromDB = usedKeys.indexOf(defaultSettingKey) === -1;
                     if (isMissingFromDB) {
                         defaultSetting.value = defaultSetting.getDefaultValue();
-                        insertOperations.push(Settings.forge(defaultSetting).save(null, options));
+
+                        const settingValues = Object.assign({}, defaultSetting, {
+                            id: ObjectID.generate(),
+                            created_at: date,
+                            created_by: owner.id,
+                            updated_at: date,
+                            updated_by: owner.id
+                        });
+
+                        insertOperations.push(
+                            ghostBookshelf.knex
+                                .table('settings')
+                                .insert(_.pick(settingValues, columns))
+                        );
                     }
                 });
 

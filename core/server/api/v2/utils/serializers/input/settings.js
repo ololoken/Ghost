@@ -1,14 +1,31 @@
 const _ = require('lodash');
 const url = require('./utils/url');
+const typeGroupMapper = require('./utils/settings-type-group-mapper');
 
 module.exports = {
+    browse(apiConfig, frame) {
+        if (frame.options.type) {
+            let mappedGroupOptions = typeGroupMapper(frame.options.type);
+
+            frame.options.group = mappedGroupOptions;
+        }
+    },
+
     read(apiConfig, frame) {
-        if (frame.options.key === 'codeinjection_head') {
-            frame.options.key = 'ghost_head';
+        if (frame.options.key === 'ghost_head') {
+            frame.options.key = 'codeinjection_head';
         }
 
-        if (frame.options.key === 'codeinjection_foot') {
-            frame.options.key = 'ghost_foot';
+        if (frame.options.key === 'ghost_foot') {
+            frame.options.key = 'codeinjection_foot';
+        }
+
+        if (frame.options.key === 'default_locale') {
+            frame.options.key = 'lang';
+        }
+
+        if (frame.options.key === 'active_timezone') {
+            frame.options.key = 'timezone';
         }
     },
 
@@ -38,24 +55,25 @@ module.exports = {
                 setting.value = setting.value === 'true';
             }
 
-            if (setting.key === 'codeinjection_head') {
-                setting.key = 'ghost_head';
+            if (setting.key === 'ghost_head') {
+                setting.key = 'codeinjection_head';
             }
 
-            if (setting.key === 'codeinjection_foot') {
-                setting.key = 'ghost_foot';
+            if (setting.key === 'ghost_foot') {
+                setting.key = 'codeinjection_foot';
+            }
+
+            if (setting.key === 'default_locale') {
+                setting.key = 'lang';
+            }
+
+            if (setting.key === 'active_timezone') {
+                setting.key = 'timezone';
             }
 
             if (['cover_image', 'icon', 'logo'].includes(setting.key)) {
                 setting = url.forSetting(setting);
             }
         });
-
-        // CASE: deprecated, won't accept
-        const index = _.findIndex(frame.data.settings, {key: 'force_i18n'});
-
-        if (index !== -1) {
-            frame.data.settings.splice(index, 1);
-        }
     }
 };

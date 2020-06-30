@@ -4,8 +4,15 @@ const _ = require('lodash');
 const BaseImporter = require('./base');
 const models = require('../../../../models');
 const defaultSettings = require('../../../schema').defaultSettings;
-const labsDefaults = JSON.parse(defaultSettings.blog.labs.defaultValue);
-const deprecatedSettings = ['active_apps', 'installed_apps'];
+
+const labsDefaults = JSON.parse(defaultSettings.labs.labs.defaultValue);
+const ignoredSettings = ['active_apps', 'installed_apps'];
+const deprecatedSupportedSettingsMap = {
+    default_locale: 'lang',
+    active_timezone: 'timezone',
+    ghost_head: 'codeinjection_head',
+    ghost_foot: 'codeinjection_foot'
+};
 
 const isFalse = (value) => {
     // Catches false, null, undefined, empty string
@@ -68,22 +75,17 @@ class SettingsImporter extends BaseImporter {
 
         // Don't import any old, deprecated settings
         this.dataToImport = _.filter(this.dataToImport, (data) => {
-            return !_.includes(deprecatedSettings, data.key);
+            return !_.includes(ignoredSettings, data.key);
         });
 
-        const permalinks = _.find(this.dataToImport, {key: 'permalinks'});
+        // NOTE: import settings removed in v3 and move them to ignored once Ghost v4 changes are done
+        this.dataToImport = this.dataToImport.map((data) => {
+            if (deprecatedSupportedSettingsMap[data.key]) {
+                data.key = deprecatedSupportedSettingsMap[data.key];
+            }
 
-        if (permalinks) {
-            this.problems.push({
-                message: 'Permalink Setting was removed. Please configure permalinks in your routes.yaml.',
-                help: this.modelName,
-                context: JSON.stringify(permalinks)
-            });
-
-            this.dataToImport = _.filter(this.dataToImport, (data) => {
-                return data.key !== 'permalinks';
-            });
-        }
+            return data;
+        });
 
         // Remove core and theme data types
         this.dataToImport = _.filter(this.dataToImport, (data) => {
@@ -123,10 +125,8 @@ class SettingsImporter extends BaseImporter {
             }
 
             // CASE: we do not import "from address" for members settings as that needs to go via validation with magic link
-            if (obj.key === 'members_subscription_settings' && obj.value) {
-                const oldMemberSettings = _.find(this.existingData, {key: 'members_subscription_settings'}) || {};
-                const oldMemberSettingsVal = oldMemberSettings.value ? JSON.parse(oldMemberSettings.value) : {};
-                obj.value = JSON.stringify(_.assign({}, JSON.parse(obj.value), {fromAddress: oldMemberSettingsVal.fromAddress}));
+            if (obj.key === 'members_from_address') {
+                obj.value = null;
             }
 
             // CASE: export files might contain "0" or "1" for booleans. Model layer needs real booleans.

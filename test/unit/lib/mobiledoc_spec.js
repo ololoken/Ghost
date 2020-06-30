@@ -1,16 +1,15 @@
 const path = require('path');
 const should = require('should');
+const sinon = require('sinon');
 const nock = require('nock');
 const configUtils = require('../../utils/configUtils');
 const mobiledocLib = require('../../../core/server/lib/mobiledoc');
 const storage = require('../../../core/server/adapters/storage');
+const urlUtils = require('../../../core/shared/url-utils');
 
 describe('lib/mobiledoc', function () {
-    beforeEach(function () {
-        configUtils.set('url', 'https://example.com');
-    });
-
     afterEach(function () {
+        sinon.restore();
         nock.cleanAll();
         configUtils.restore();
         // ensure config changes are reset and picked up by next test
@@ -76,7 +75,7 @@ describe('lib/mobiledoc', function () {
             };
 
             mobiledocLib.mobiledocHtmlRenderer.render(mobiledoc)
-                .should.eql('<p>One<br>Two</p><!--kg-card-begin: markdown--><h1 id="markdowncard">Markdown card</h1>\n<p>Some markdown</p>\n<!--kg-card-end: markdown--><p>Three</p><hr><figure class="kg-card kg-image-card kg-width-wide kg-card-hascaption"><img src="/content/images/2018/04/NatGeo06.jpg" class="kg-image" alt width="4000" height="2000" srcset="/content/images/size/w600/2018/04/NatGeo06.jpg 600w, /content/images/size/w1000/2018/04/NatGeo06.jpg 1000w, /content/images/size/w1600/2018/04/NatGeo06.jpg 1600w, /content/images/size/w2400/2018/04/NatGeo06.jpg 2400w" sizes="(min-width: 1200px) 1200px"><figcaption>Birdies</figcaption></figure><p>Four</p><!--kg-card-begin: html--><h2>HTML card</h2>\n<div><p>Some HTML</p></div><!--kg-card-end: html--><figure class="kg-card kg-embed-card"><h2>Embed card</h2></figure><figure class="kg-card kg-gallery-card kg-width-wide"><div class="kg-gallery-container"><div class="kg-gallery-row"><div class="kg-gallery-image"><img src="/content/images/test.png" width="1000" height="500" alt srcset="/content/images/size/w600/test.png 600w, /content/images/test.png 1000w" sizes="(min-width: 720px) 720px"></div></div></div></figure>');
+                .should.eql('<p>One<br>Two</p><!--kg-card-begin: markdown--><h1 id="markdowncard">Markdown card</h1>\n<p>Some markdown</p>\n<!--kg-card-end: markdown--><p>Three</p><hr><figure class="kg-card kg-image-card kg-width-wide kg-card-hascaption"><img src="/content/images/2018/04/NatGeo06.jpg" class="kg-image" alt srcset="/content/images/size/w600/2018/04/NatGeo06.jpg 600w, /content/images/size/w1000/2018/04/NatGeo06.jpg 1000w, /content/images/size/w1600/2018/04/NatGeo06.jpg 1600w, /content/images/size/w2400/2018/04/NatGeo06.jpg 2400w" sizes="(min-width: 1200px) 1200px"><figcaption>Birdies</figcaption></figure><p>Four</p><!--kg-card-begin: html--><h2>HTML card</h2>\n<div><p>Some HTML</p></div><!--kg-card-end: html--><figure class="kg-card kg-embed-card"><h2>Embed card</h2></figure><figure class="kg-card kg-gallery-card kg-width-wide"><div class="kg-gallery-container"><div class="kg-gallery-row"><div class="kg-gallery-image"><img src="/content/images/test.png" width="1000" height="500" alt srcset="/content/images/size/w600/test.png 600w, /content/images/test.png 1000w" sizes="(min-width: 720px) 720px"></div></div></div></figure>');
         });
 
         it('respects srcsets config', function () {
@@ -111,7 +110,7 @@ describe('lib/mobiledoc', function () {
             };
 
             mobiledocLib.mobiledocHtmlRenderer.render(mobiledoc)
-                .should.eql('<figure class="kg-card kg-image-card kg-width-wide kg-card-hascaption"><img src="/content/images/2018/04/NatGeo06.jpg" class="kg-image" alt width="4000" height="2000"><figcaption>Birdies</figcaption></figure><figure class="kg-card kg-gallery-card kg-width-wide"><div class="kg-gallery-container"><div class="kg-gallery-row"><div class="kg-gallery-image"><img src="/content/images/test.png" width="1000" height="500" alt></div></div></div></figure>');
+                .should.eql('<figure class="kg-card kg-image-card kg-width-wide kg-card-hascaption"><img src="/content/images/2018/04/NatGeo06.jpg" class="kg-image" alt><figcaption>Birdies</figcaption></figure><figure class="kg-card kg-gallery-card kg-width-wide"><div class="kg-gallery-container"><div class="kg-gallery-row"><div class="kg-gallery-image"><img src="/content/images/test.png" width="1000" height="500" alt></div></div></div></figure>');
         });
     });
 
@@ -150,19 +149,36 @@ describe('lib/mobiledoc', function () {
             unsplashMock.isDone().should.be.true();
 
             transformed.cards.length.should.equal(4);
+        });
+
+        // images can be stored with and without subdir when a subdir is configured
+        // but storage adapter always needs paths relative to content dir
+        it('works with subdir', async function () {
+            // urlUtils is a class instance and won't pick up changes to config so
+            // it's necessary to stub out the internals used by
+            sinon.stub(urlUtils, 'getSubdir').returns('/subdir');
+
+            let mobiledoc = {
+                cards: [
+                    ['image', {src: '/content/images/ghost-logo.png'}],
+                    ['image', {src: '/subdir/content/images/ghost-logo.png'}]
+                ]
+            };
+
+            const transformedMobiledoc = await mobiledocLib.populateImageSizes(JSON.stringify(mobiledoc));
+            const transformed = JSON.parse(transformedMobiledoc);
+
+            transformed.cards.length.should.equal(2);
 
             should.exist(transformed.cards[0][1].width);
             transformed.cards[0][1].width.should.equal(800);
             should.exist(transformed.cards[0][1].height);
             transformed.cards[0][1].height.should.equal(257);
 
-            should.not.exist(transformed.cards[1][1].width);
-            should.not.exist(transformed.cards[1][1].height);
-
-            should.exist(transformed.cards[2][1].width);
-            transformed.cards[2][1].width.should.equal(100);
-            should.exist(transformed.cards[2][1].height);
-            transformed.cards[2][1].height.should.equal(80);
+            should.exist(transformed.cards[1][1].width);
+            transformed.cards[1][1].width.should.equal(800);
+            should.exist(transformed.cards[1][1].height);
+            transformed.cards[1][1].height.should.equal(257);
         });
     });
 });

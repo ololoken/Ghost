@@ -1,9 +1,63 @@
+const _ = require('lodash');
 const should = require('should');
 const supertest = require('supertest');
 const config = require('../../../../../core/shared/config');
 const testUtils = require('../../../../utils');
 const localUtils = require('./utils');
 const ghost = testUtils.startGhost;
+
+// NOTE: in future iterations these fields should be fetched from a central module.
+//       Have put a list as is here for the lack of better place for it.
+const defaultSettingsKeyTypes = [
+    {key: 'title', type: 'blog'},
+    {key: 'description', type: 'blog'},
+    {key: 'logo', type: 'blog'},
+    {key: 'cover_image', type: 'blog'},
+    {key: 'icon', type: 'blog'},
+    {key: 'lang', type: 'blog'},
+    {key: 'timezone', type: 'blog'},
+    {key: 'codeinjection_head', type: 'blog'},
+    {key: 'codeinjection_foot', type: 'blog'},
+    {key: 'facebook', type: 'blog'},
+    {key: 'twitter', type: 'blog'},
+    {key: 'navigation', type: 'blog'},
+    {key: 'secondary_navigation', type: 'blog'},
+    {key: 'meta_title', type: 'blog'},
+    {key: 'meta_description', type: 'blog'},
+    {key: 'og_image', type: 'blog'},
+    {key: 'og_title', type: 'blog'},
+    {key: 'og_description', type: 'blog'},
+    {key: 'twitter_image', type: 'blog'},
+    {key: 'twitter_title', type: 'blog'},
+    {key: 'twitter_description', type: 'blog'},
+    {key: 'active_theme', type: 'theme'},
+    {key: 'is_private', type: 'private'},
+    {key: 'password', type: 'private'},
+    {key: 'public_hash', type: 'private'},
+    {key: 'default_content_visibility', type: 'members'},
+    {key: 'members_allow_free_signup', type: 'members'},
+    {key: 'members_from_address', type: 'members'},
+    {key: 'stripe_product_name', type: 'members'},
+    {key: 'stripe_plans', type: 'members'},
+    {key: 'stripe_secret_key', type: 'members'},
+    {key: 'stripe_publishable_key', type: 'members'},
+    {key: 'stripe_connect_secret_key', type: 'members'},
+    {key: 'stripe_connect_publishable_key', type: 'members'},
+    {key: 'stripe_connect_account_id', type: 'members'},
+    {key: 'stripe_connect_display_name', type: 'members'},
+    {key: 'stripe_connect_livemode', type: 'members'},
+    {key: 'portal_name', type: 'portal'},
+    {key: 'portal_button', type: 'portal'},
+    {key: 'portal_plans', type: 'portal'},
+    {key: 'bulk_email_settings', type: 'bulk_email'},
+    {key: 'amp', type: 'blog'},
+    {key: 'labs', type: 'blog'},
+    {key: 'slack', type: 'blog'},
+    {key: 'unsplash', type: 'blog'},
+    {key: 'shared_views', type: 'blog'},
+    {key: 'active_timezone', type: 'blog'},
+    {key: 'default_locale', type: 'blog'}
+];
 
 describe('Settings API (canary)', function () {
     let ghostServer;
@@ -18,6 +72,130 @@ describe('Settings API (canary)', function () {
                 })
                 .then(function () {
                     return localUtils.doAuth(request);
+                });
+        });
+
+        it('Can request all settings', function () {
+            return request.get(localUtils.API.getApiQuery(`settings/`))
+                .set('Origin', config.get('url'))
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .expect(200)
+                .then((res) => {
+                    should.not.exist(res.headers['x-cache-invalidate']);
+
+                    const jsonResponse = res.body;
+                    should.exist(jsonResponse.settings);
+                    should.exist(jsonResponse.meta);
+
+                    jsonResponse.settings.should.be.an.Object();
+                    const settings = jsonResponse.settings;
+
+                    should.equal(settings.length, defaultSettingsKeyTypes.length);
+                    for (const defaultSetting of defaultSettingsKeyTypes) {
+                        should.exist(settings.find((setting) => {
+                            return setting.key === defaultSetting.key && setting.type === defaultSetting.type;
+                        }));
+                    }
+
+                    localUtils.API.checkResponse(jsonResponse, 'settings');
+                });
+        });
+
+        it('Can request settings by type', function () {
+            return request.get(localUtils.API.getApiQuery(`settings/?type=theme`))
+                .set('Origin', config.get('url'))
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .expect(200)
+                .then((res) => {
+                    should.not.exist(res.headers['x-cache-invalidate']);
+
+                    const jsonResponse = res.body;
+                    should.exist(jsonResponse.settings);
+                    should.exist(jsonResponse.meta);
+
+                    jsonResponse.settings.should.be.an.Object();
+                    const settings = jsonResponse.settings;
+
+                    Object.keys(settings).length.should.equal(1);
+                    settings[0].key.should.equal('active_theme');
+                    settings[0].value.should.equal('casper');
+                    settings[0].type.should.equal('theme');
+
+                    localUtils.API.checkResponse(jsonResponse, 'settings');
+                });
+        });
+
+        it('Can request settings by group', function () {
+            return request.get(localUtils.API.getApiQuery(`settings/?group=theme`))
+                .set('Origin', config.get('url'))
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .expect(200)
+                .then((res) => {
+                    should.not.exist(res.headers['x-cache-invalidate']);
+
+                    const jsonResponse = res.body;
+                    should.exist(jsonResponse.settings);
+                    should.exist(jsonResponse.meta);
+
+                    jsonResponse.settings.should.be.an.Object();
+                    const settings = jsonResponse.settings;
+
+                    Object.keys(settings).length.should.equal(1);
+                    settings[0].key.should.equal('active_theme');
+                    settings[0].value.should.equal('casper');
+                    settings[0].type.should.equal('theme');
+
+                    localUtils.API.checkResponse(jsonResponse, 'settings');
+                });
+        });
+
+        it('Can request settings by group and by deprecated type', function () {
+            return request.get(localUtils.API.getApiQuery(`settings/?group=theme&type=private`))
+                .set('Origin', config.get('url'))
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .expect(200)
+                .then((res) => {
+                    should.not.exist(res.headers['x-cache-invalidate']);
+
+                    const jsonResponse = res.body;
+                    should.exist(jsonResponse.settings);
+                    should.exist(jsonResponse.meta);
+
+                    jsonResponse.settings.should.be.an.Object();
+                    const settings = jsonResponse.settings;
+
+                    Object.keys(settings).length.should.equal(4);
+                    settings[0].key.should.equal('active_theme');
+                    settings[0].value.should.equal('casper');
+                    settings[0].type.should.equal('theme');
+
+                    localUtils.API.checkResponse(jsonResponse, 'settings');
+                });
+        });
+
+        it('Requesting core settings type returns no results', function () {
+            return request.get(localUtils.API.getApiQuery(`settings/?type=core`))
+                .set('Origin', config.get('url'))
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .expect(200)
+                .then((res) => {
+                    should.not.exist(res.headers['x-cache-invalidate']);
+
+                    const jsonResponse = res.body;
+                    should.exist(jsonResponse.settings);
+                    should.exist(jsonResponse.meta);
+
+                    jsonResponse.settings.should.be.an.Object();
+                    const settings = jsonResponse.settings;
+
+                    Object.keys(settings).length.should.equal(0);
+
+                    localUtils.API.checkResponse(jsonResponse, 'settings');
                 });
         });
 
@@ -41,6 +219,144 @@ describe('Settings API (canary)', function () {
                         return done(err);
                     }
 
+                    done();
+                });
+        });
+
+        it('Can read deprecated default_locale', function (done) {
+            request.get(localUtils.API.getApiQuery('settings/default_locale/'))
+                .set('Origin', config.get('url'))
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .expect(200)
+                .end(function (err, res) {
+                    if (err) {
+                        return done(err);
+                    }
+
+                    should.not.exist(res.headers['x-cache-invalidate']);
+                    const jsonResponse = res.body;
+
+                    should.exist(jsonResponse);
+                    should.exist(jsonResponse.settings);
+
+                    jsonResponse.settings.length.should.eql(1);
+
+                    testUtils.API.checkResponseValue(jsonResponse.settings[0], ['id', 'group', 'key', 'value', 'type', 'flags', 'created_at', 'updated_at']);
+                    jsonResponse.settings[0].key.should.eql('default_locale');
+                    done();
+                });
+        });
+
+        it('can edit deprecated default_locale setting', function () {
+            return request.get(localUtils.API.getApiQuery('settings/default_locale/'))
+                .set('Origin', config.get('url'))
+                .set('Accept', 'application/json')
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .then(function (res) {
+                    let jsonResponse = res.body;
+                    const newValue = 'new value';
+                    should.exist(jsonResponse);
+                    should.exist(jsonResponse.settings);
+                    jsonResponse.settings = [{key: 'default_locale', value: 'ua'}];
+
+                    return jsonResponse;
+                })
+                .then((editedSetting) => {
+                    return request.put(localUtils.API.getApiQuery('settings/'))
+                        .set('Origin', config.get('url'))
+                        .send(editedSetting)
+                        .expect('Content-Type', /json/)
+                        .expect('Cache-Control', testUtils.cacheRules.private)
+                        .expect(200)
+                        .then(function (res) {
+                            should.exist(res.headers['x-cache-invalidate']);
+                            const jsonResponse = res.body;
+
+                            should.exist(jsonResponse);
+                            should.exist(jsonResponse.settings);
+
+                            jsonResponse.settings.length.should.eql(1);
+
+                            testUtils.API.checkResponseValue(jsonResponse.settings[0], ['id', 'group', 'key', 'value', 'type', 'flags', 'created_at', 'updated_at']);
+                            jsonResponse.settings[0].key.should.eql('default_locale');
+                            jsonResponse.settings[0].value.should.eql('ua');
+                        });
+                });
+        });
+
+        it('Can read timezone', function (done) {
+            request.get(localUtils.API.getApiQuery('settings/timezone/'))
+                .set('Origin', config.get('url'))
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .expect(200)
+                .end(function (err, res) {
+                    if (err) {
+                        return done(err);
+                    }
+
+                    should.not.exist(res.headers['x-cache-invalidate']);
+                    const jsonResponse = res.body;
+
+                    should.exist(jsonResponse);
+                    should.exist(jsonResponse.settings);
+
+                    jsonResponse.settings.length.should.eql(1);
+
+                    testUtils.API.checkResponseValue(jsonResponse.settings[0], ['id', 'group', 'key', 'value', 'type', 'flags', 'created_at', 'updated_at']);
+                    jsonResponse.settings[0].key.should.eql('timezone');
+                    done();
+                });
+        });
+
+        it('Can read active_timezone', function (done) {
+            request.get(localUtils.API.getApiQuery('settings/active_timezone/'))
+                .set('Origin', config.get('url'))
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .expect(200)
+                .end(function (err, res) {
+                    if (err) {
+                        return done(err);
+                    }
+
+                    should.not.exist(res.headers['x-cache-invalidate']);
+                    const jsonResponse = res.body;
+
+                    should.exist(jsonResponse);
+                    should.exist(jsonResponse.settings);
+
+                    jsonResponse.settings.length.should.eql(1);
+
+                    testUtils.API.checkResponseValue(jsonResponse.settings[0], ['id', 'group', 'key', 'value', 'type', 'flags', 'created_at', 'updated_at']);
+                    jsonResponse.settings[0].key.should.eql('active_timezone');
+                    done();
+                });
+        });
+
+        it('Can read deprecated active_timezone', function (done) {
+            request.get(localUtils.API.getApiQuery('settings/active_timezone/'))
+                .set('Origin', config.get('url'))
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .expect(200)
+                .end(function (err, res) {
+                    if (err) {
+                        return done(err);
+                    }
+
+                    should.not.exist(res.headers['x-cache-invalidate']);
+                    const jsonResponse = res.body;
+
+                    should.exist(jsonResponse);
+                    should.exist(jsonResponse.settings);
+
+                    jsonResponse.settings.length.should.eql(1);
+
+                    testUtils.API.checkResponseValue(jsonResponse.settings[0], ['id', 'group', 'key', 'value', 'type', 'flags', 'created_at', 'updated_at']);
+                    jsonResponse.settings[0].key.should.eql('active_timezone');
                     done();
                 });
         });
@@ -143,34 +459,29 @@ describe('Settings API (canary)', function () {
                 });
         });
 
-        it('can\'t edit non existent setting', function (done) {
-            request.get(localUtils.API.getApiQuery('settings/'))
+        it('can\'t edit non existent setting', function () {
+            return request.get(localUtils.API.getApiQuery('settings/'))
                 .set('Origin', config.get('url'))
                 .set('Accept', 'application/json')
                 .expect('Content-Type', /json/)
                 .expect('Cache-Control', testUtils.cacheRules.private)
-                .end(function (err, res) {
-                    if (err) {
-                        return done(err);
-                    }
-
+                .then(function (res) {
                     let jsonResponse = res.body;
                     const newValue = 'new value';
                     should.exist(jsonResponse);
                     should.exist(jsonResponse.settings);
                     jsonResponse.settings = [{key: 'testvalue', value: newValue}];
 
-                    request.put(localUtils.API.getApiQuery('settings/'))
+                    return jsonResponse;
+                })
+                .then((jsonResponse) => {
+                    return request.put(localUtils.API.getApiQuery('settings/'))
                         .set('Origin', config.get('url'))
                         .send(jsonResponse)
                         .expect('Content-Type', /json/)
                         .expect('Cache-Control', testUtils.cacheRules.private)
                         .expect(404)
-                        .end(function (err, res) {
-                            if (err) {
-                                return done(err);
-                            }
-
+                        .then(function (res) {
                             jsonResponse = res.body;
                             should.not.exist(res.headers['x-cache-invalidate']);
                             should.exist(jsonResponse.errors);
@@ -184,7 +495,6 @@ describe('Settings API (canary)', function () {
                                 'code',
                                 'id'
                             ]);
-                            done();
                         });
                 });
         });
