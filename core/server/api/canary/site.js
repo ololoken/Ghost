@@ -15,7 +15,7 @@ const site = {
                 logo: settingsCache.get('logo'),
                 accent_color: settingsCache.get('accent_color'),
                 url: urlUtils.urlFor('home', true),
-                defaultLocale: settingsCache.get('default_locale'),
+                defaultLocale: settingsCache.get('lang'),
                 version: ghostVersion.safe
             };
 

@@ -8,14 +8,44 @@ module.exports = {
 
     async up(config) {
         const knex = config.transacting;
+        const defaultOperations = [{
+            key: 'stripe_connect_publishable_key'
+        }, {
+            key: 'stripe_connect_secret_key'
+        }, {
+            key: 'stripe_connect_livemode'
+        }, {
+            key: 'stripe_connect_display_name'
+        }, {
+            key: 'stripe_connect_account_id'
+        }];
+
+        for (const operation of defaultOperations) {
+            logging.info(`Updating ${operation.key} setting group,type,flags`);
+            await knex('settings')
+                .where({
+                    key: operation.key
+                })
+                .update({
+                    group: 'members',
+                    flags: '',
+                    type: 'members'
+                });
+        }
+
         const stripeConnectIntegrationJSON = await knex('settings')
             .select('value')
             .where('key', 'stripe_connect_integration')
             .first();
 
+        if (!stripeConnectIntegrationJSON) {
+            logging.warn(`Could not find stripe_connect_integration - using default values`);
+            return;
+        }
+
         const stripeConnectIntegration = JSON.parse(stripeConnectIntegrationJSON.value);
 
-        const operations = [{
+        const valueOperations = [{
             key: 'stripe_connect_publishable_key',
             value: stripeConnectIntegration.public_key || ''
         }, {
@@ -32,17 +62,14 @@ module.exports = {
             value: stripeConnectIntegration.account_id || ''
         }];
 
-        for (const operation of operations) {
-            logging.info(`Updating ${operation.key} setting`);
+        for (const operation of valueOperations) {
+            logging.info(`Updating ${operation.key} setting value`);
             await knex('settings')
                 .where({
                     key: operation.key
                 })
                 .update({
-                    value: operation.value,
-                    group: 'members',
-                    flags: '',
-                    type: 'members'
+                    value: operation.value
                 });
         }
 
@@ -64,11 +91,11 @@ module.exports = {
         const secretKey = await getSetting('stripe_connect_secret_key');
 
         const stripeConnectIntegration = {
-            account_id: accountId.value,
-            display_name: displayName.value,
-            livemode: livemode.value,
-            public_key: publishableKey.value,
-            secret_key: secretKey.value
+            account_id: accountId ? accountId.value : null,
+            display_name: displayName ? displayName.value : null,
+            livemode: livemode ? livemode.value : null,
+            public_key: publishableKey ? publishableKey.value : null,
+            secret_key: secretKey ? secretKey.value : null
         };
 
         const now = knex.raw('CURRENT_TIMESTAMP');

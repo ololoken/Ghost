@@ -16,7 +16,11 @@ const renameMappings = [{
     from: 'brand',
     to: 'accent_color',
     getToValue: (fromValue) => {
-        return JSON.parse(fromValue).primaryColor || '';
+        try {
+            return JSON.parse(fromValue).primaryColor || '';
+        } catch (err) {
+            return '';
+        }
     },
     getFromValue: (toValue) => {
         return JSON.stringify({
@@ -36,6 +40,11 @@ module.exports = {
                 .where('key', renameMapping.from)
                 .select('value')
                 .first();
+
+            if (!oldSetting) {
+                logging.warn(`Could not find setting ${renameMapping.from}, not updating ${renameMapping.to} value`);
+                continue;
+            }
 
             const updatedValue = renameMapping.getToValue ? renameMapping.getToValue(oldSetting.value) : oldSetting.value;
 
@@ -57,6 +66,11 @@ module.exports = {
                 .where('key', renameMapping.to)
                 .select('value')
                 .first();
+
+            if (!newSetting) {
+                logging.warn(`Could not find setting ${renameMapping.to}, not updating ${renameMapping.from} value`);
+                continue;
+            }
 
             const updatedValue = renameMapping.getFromValue ? renameMapping.getFromValue(newSetting.value) : newSetting.value;
 

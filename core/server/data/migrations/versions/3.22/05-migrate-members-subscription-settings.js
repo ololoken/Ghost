@@ -8,10 +8,44 @@ module.exports = {
 
     async up(config) {
         const knex = config.transacting;
+
+        const defaultOperations = [{
+            key: 'members_from_address',
+            flags: 'RO'
+        }, {
+            key: 'members_allow_free_signup'
+        }, {
+            key: 'stripe_product_name'
+        }, {
+            key: 'stripe_secret_key'
+        }, {
+            key: 'stripe_publishable_key'
+        }, {
+            key: 'stripe_plans'
+        }];
+
+        for (const operation of defaultOperations) {
+            logging.info(`Updating ${operation.key} setting group,type,flags`);
+            await knex('settings')
+                .where({
+                    key: operation.key
+                })
+                .update({
+                    group: 'members',
+                    type: 'members',
+                    flags: operation.flags || ''
+                });
+        }
+
         const membersSubscriptionSettingsJSON = await knex('settings')
             .select('value')
             .where('key', 'members_subscription_settings')
             .first();
+
+        if (!membersSubscriptionSettingsJSON) {
+            logging.warn(`Could not find members_subscription_settings - using default values`);
+            return;
+        }
 
         const membersSubscriptionSettings = JSON.parse(membersSubscriptionSettingsJSON.value);
 
@@ -30,13 +64,12 @@ module.exports = {
             });
         });
 
-        const operations = [{
+        const valueOperations = [{
             key: 'members_from_address',
-            value: membersFromAddress,
-            flags: 'RO'
+            value: membersFromAddress
         }, {
             key: 'members_allow_free_signup',
-            value: membersAllowSelfSignup.toString()
+            value: (membersAllowSelfSignup === undefined).toString()
         }, {
             key: 'stripe_product_name',
             value: stripeProductName
@@ -51,17 +84,15 @@ module.exports = {
             value: JSON.stringify(stripePlans)
         }];
 
-        for (const operation of operations) {
-            logging.info(`Updating ${operation.key} setting`);
+        for (const operation of valueOperations) {
+            if (!operation.value) continue;
+            logging.info(`Updating ${operation.key} setting value`);
             await knex('settings')
                 .where({
                     key: operation.key
                 })
                 .update({
-                    value: operation.value,
-                    group: 'members',
-                    flags: operation.flags || '',
-                    type: 'members'
+                    value: operation.value
                 });
         }
 
@@ -84,20 +115,30 @@ module.exports = {
 
         const stripePlans = await getSetting('stripe_plans');
 
-        const allowSelfSignupBoolean = allowSelfSignup.value === 'true';
+        const allowSelfSignupBoolean = allowSelfSignup && allowSelfSignup.value === 'true';
 
         const membersSubscriptionSettings = {
-            fromAddress: membersFromAddress.value,
+            fromAddress: membersFromAddress ? membersFromAddress.value : 'noreply',
             allowSelfSignup: allowSelfSignupBoolean,
             paymentProcessors: [{
                 adapter: 'stripe',
                 config: {
-                    secret_token: stripeDirectSecretKey.value,
-                    public_token: stripeDirectPublishableKey.value,
+                    secret_token: stripeDirectSecretKey ? stripeDirectSecretKey.value : null,
+                    public_token: stripeDirectPublishableKey ? stripeDirectPublishableKey.value : null,
                     product: {
-                        name: stripeProductName.value
+                        name: stripeProductName ? stripeProductName.value : 'Ghost Subscription'
                     },
-                    plans: JSON.parse(stripePlans.value)
+                    plans: stripePlans ? JSON.parse(stripePlans.value) : [{
+                        name: 'Monthly',
+                        currency: 'usd',
+                        interval: 'month',
+                        amount: 500
+                    }, {
+                        name: 'Yearly',
+                        currency: 'usd',
+                        interval: 'year',
+                        amount: 5000
+                    }]
                 }
             }]
         };
