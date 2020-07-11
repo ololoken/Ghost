@@ -39,6 +39,14 @@
         "members_email_auth_secret": {
             "defaultValue": null,
             "type": "string"
+        },
+        "members_stripe_webhook_id": {
+            "defaultValue": null,
+            "type": "string"
+        },
+        "members_stripe_webhook_secret": {
+            "defaultValue": null,
+            "type": "string"
         }
     },
     "site": {
@@ -107,7 +115,7 @@
             "type": "string"
         },
         "twitter": {
-            "defaultValue": "tryghost",
+            "defaultValue": "ghost",
             "type": "string"
         },
         "navigation": {
