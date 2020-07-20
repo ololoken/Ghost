@@ -342,6 +342,77 @@ describe('Posts API (v3)', function () {
                     res.body.posts[0].slug.should.equal('this-is-invisible');
                 });
         });
+
+        it('changes to post_meta fields triggers a cache invalidation', function () {
+            return request
+                .get(localUtils.API.getApiQuery(`posts/${testUtils.DataGenerator.Content.posts[0].id}/`))
+                .set('Origin', config.get('url'))
+                .expect(200)
+                .then((res) => {
+                    return request
+                        .put(localUtils.API.getApiQuery('posts/' + testUtils.DataGenerator.Content.posts[0].id + '/'))
+                        .set('Origin', config.get('url'))
+                        .send({
+                            posts: [{
+                                meta_title: 'changed meta title',
+                                updated_at: res.body.posts[0].updated_at
+                            }]
+                        })
+                        .expect('Content-Type', /json/)
+                        .expect('Cache-Control', testUtils.cacheRules.private)
+                        .expect(200);
+                })
+                .then((res) => {
+                    should.exist(res.headers['x-cache-invalidate']);
+
+                    should.exist(res.body.posts);
+                    should.equal(res.body.posts[0].meta_title, 'changed meta title');
+                });
+        });
+
+        it('saving post with no modbiledoc content doesn\t trigger cache invalidation', function () {
+            return request
+                .post(localUtils.API.getApiQuery('posts/'))
+                .set('Origin', config.get('url'))
+                .send({
+                    posts: [{
+                        title: 'Has a title by no other content',
+                        status: 'published'
+                    }]
+                })
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .expect(201)
+                .then((res) => {
+                    should.exist(res.body.posts);
+                    should.exist(res.body.posts[0].title);
+                    res.body.posts[0].title.should.equal('Has a title by no other content');
+                    should.equal(res.body.posts[0].html, undefined);
+                    should.equal(res.body.posts[0].plaintext, undefined);
+
+                    return request
+                        .put(localUtils.API.getApiQuery(`posts/${res.body.posts[0].id}/`))
+                        .set('Origin', config.get('url'))
+                        .send({
+                            posts: [{
+                                title: res.body.posts[0].title,
+                                mobilecdoc: res.body.posts[0].mobilecdoc,
+                                updated_at: res.body.posts[0].updated_at
+                            }]
+                        })
+                        .expect('Content-Type', /json/)
+                        .expect('Cache-Control', testUtils.cacheRules.private)
+                        .expect(200);
+                })
+                .then((res) => {
+                    should.not.exist(res.headers['x-cache-invalidate']);
+
+                    should.exist(res.body.posts);
+                    res.body.posts[0].title.should.equal('Has a title by no other content');
+                    should.equal(res.body.posts[0].html, undefined);
+                    should.equal(res.body.posts[0].plaintext, undefined);
+                });
+        });
     });
 
     describe('Destroy', function () {
