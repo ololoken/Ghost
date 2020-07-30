@@ -156,6 +156,115 @@ describe('Members API', function () {
             });
     });
 
+    it('Can delete a member without cancelling Stripe Subscription', async function () {
+        const member = {
+            name: 'Member 2 Delete',
+            email: 'Member2Delete@test.com'
+        };
+
+        const createdMember = await request.post(localUtils.API.getApiQuery(`members/`))
+            .send({members: [member]})
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(201)
+            .then((res) => {
+                should.not.exist(res.headers['x-cache-invalidate']);
+                const jsonResponse = res.body;
+                should.exist(jsonResponse);
+                should.exist(jsonResponse.members);
+                jsonResponse.members.should.have.length(1);
+
+                return jsonResponse.members[0];
+            });
+
+        await request.delete(localUtils.API.getApiQuery(`members/${createdMember.id}/`))
+            .set('Origin', config.get('url'))
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(204)
+            .then((res) => {
+                should.not.exist(res.headers['x-cache-invalidate']);
+
+                const jsonResponse = res.body;
+
+                should.exist(jsonResponse);
+            });
+    });
+
+    // NOTE: this test should be enabled and expanded once test suite fully supports Stripe mocking
+    it.skip('Can delete a member and cancel Stripe Subscription', async function () {
+        const member = {
+            name: 'Member 2 Delete',
+            email: 'Member2Delete@test.com',
+            comped: true
+        };
+
+        const createdMember = await request.post(localUtils.API.getApiQuery(`members/`))
+            .send({members: [member]})
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(201)
+            .then((res) => {
+                should.not.exist(res.headers['x-cache-invalidate']);
+                const jsonResponse = res.body;
+                should.exist(jsonResponse);
+                should.exist(jsonResponse.members);
+                jsonResponse.members.should.have.length(1);
+
+                return jsonResponse.members[0];
+            });
+
+        await request.delete(localUtils.API.getApiQuery(`members/${createdMember.id}/?cancel=true`))
+            .set('Origin', config.get('url'))
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(204)
+            .then((res) => {
+                should.not.exist(res.headers['x-cache-invalidate']);
+
+                const jsonResponse = res.body;
+
+                should.exist(jsonResponse);
+            });
+    });
+
+    // NOTE: this test should be enabled and expanded once test suite fully supports Stripe mocking
+    it.skip('Does not cancel Stripe Subscription if cancel_subscriptions is not set to "true"', async function () {
+        const member = {
+            name: 'Member 2 Delete',
+            email: 'Member2Delete@test.com',
+            comped: true
+        };
+
+        const createdMember = await request.post(localUtils.API.getApiQuery(`members/`))
+            .send({members: [member]})
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(201)
+            .then((res) => {
+                should.not.exist(res.headers['x-cache-invalidate']);
+                const jsonResponse = res.body;
+                should.exist(jsonResponse);
+                should.exist(jsonResponse.members);
+                jsonResponse.members.should.have.length(1);
+
+                return jsonResponse.members[0];
+            });
+
+        await request.delete(localUtils.API.getApiQuery(`members/${createdMember.id}/?cancel=false`))
+            .set('Origin', config.get('url'))
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(204)
+            .then((res) => {
+                should.not.exist(res.headers['x-cache-invalidate']);
+
+                const jsonResponse = res.body;
+
+                should.exist(jsonResponse);
+            });
+    });
+
     it('Can import CSV with minimum one field and labels', function () {
         return request
             .post(localUtils.API.getApiQuery(`members/upload/`))
@@ -200,7 +309,8 @@ describe('Members API', function () {
                 importedMember1.comped.should.equal(false);
                 importedMember1.stripe.should.not.be.undefined();
                 importedMember1.stripe.subscriptions.length.should.equal(0);
-                importedMember1.labels.length.should.equal(2);
+                // 2 specified labels plus auto-generated import label
+                importedMember1.labels.length.should.equal(3);
             });
     });
 
@@ -249,7 +359,7 @@ describe('Members API', function () {
                 importedMember1.comped.should.equal(false);
                 importedMember1.stripe.should.not.be.undefined();
                 importedMember1.stripe.subscriptions.length.should.equal(0);
-                importedMember1.labels.length.should.equal(0);
+                importedMember1.labels.length.should.equal(1); // auto-generated import label
             });
     });
 
@@ -295,7 +405,7 @@ describe('Members API', function () {
                 defaultMember1.comped.should.equal(false);
                 defaultMember1.stripe.should.not.be.undefined();
                 defaultMember1.stripe.subscriptions.length.should.equal(0);
-                defaultMember1.labels.length.should.equal(0);
+                defaultMember1.labels.length.should.equal(1); // auto-generated import label
 
                 const defaultMember2 = jsonResponse.members.find(member => (member.email === 'member+defaults_2@example.com'));
                 should(defaultMember2).not.be.undefined();

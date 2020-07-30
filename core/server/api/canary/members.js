@@ -99,25 +99,45 @@ const listMembers = async function (options) {
     };
 };
 
-const createLabels = async (labels, options) => {
+const findOrCreateLabels = async (labels, options) => {
     const api = require('./index');
 
     return await Promise.all(labels.map((label) => {
-        return api.labels.add.query({
-            data: {
-                labels: [label]
-            },
-            options: {
-                context: options.context
-            }
-        }).catch((error) => {
-            if (error.errorType === 'ValidationError') {
-                return;
+        return models.Label.findOne({name: label.name}).then((existingLabel) => {
+            if (existingLabel) {
+                return existingLabel;
             }
 
-            throw error;
+            return api.labels.add.query({
+                data: {
+                    labels: [label]
+                },
+                options: {
+                    context: options.context
+                }
+            }).catch((error) => {
+                if (error.errorType === 'ValidationError') {
+                    return;
+                }
+
+                throw error;
+            });
         });
     }));
+};
+
+const getUniqueMemberLabels = (members) => {
+    const allLabels = [];
+
+    members.forEach((member) => {
+        const labels = (member.labels && member.labels.split(',')) || [];
+
+        if (labels.length) {
+            allLabels.push(...labels);
+        }
+    });
+
+    return _.uniq(allLabels);
 };
 
 const members = {
@@ -297,7 +317,8 @@ const members = {
         statusCode: 204,
         headers: {},
         options: [
-            'id'
+            'id',
+            'cancel'
         ],
         validation: {
             options: {
@@ -320,10 +341,12 @@ const members = {
                 });
             }
 
-            // NOTE: move to a model layer once Members/MemberStripeCustomer relations are in place
-            await membersService.api.members.destroyStripeSubscriptions(member);
+            if (frame.options.cancel === true) {
+                await membersService.api.members.cancelStripeSubscriptions(member);
+            }
 
-            await models.Member.destroy(frame.options)
+            // Wrapped in bluebird promise to allow "filtered catch"
+            await Promise.resolve(models.Member.destroy(frame.options))
                 .catch(models.Member.NotFoundError, () => {
                     throw new errors.NotFoundError({
                         message: i18n.t('errors.api.resource.resourceNotFound', {
@@ -416,7 +439,23 @@ const members = {
             // NOTE: custom labels have to be created in advance otherwise there are conflicts
             //       when processing member creation in parallel later on in import process
             const importSetLabels = serializeMemberLabels(frame.data.labels);
-            await createLabels(importSetLabels, frame.options);
+            await findOrCreateLabels(importSetLabels, frame.options);
+
+            // NOTE: adding an import label allows for imports to be "undone" via bulk delete
+            let importLabel;
+            if (frame.data.members.length) {
+                const siteTimezone = settingsCache.get('timezone');
+                const name = `Import ${moment().tz(siteTimezone).format('YYYY-MM-DD HH:mm')}`;
+                const result = await findOrCreateLabels([{name}], frame.options);
+                importLabel = result[0] && result[0].toJSON();
+
+                importSetLabels.push(importLabel);
+            }
+
+            // NOTE: member-specific labels have to be pre-created as they cause conflicts when processed
+            //       in parallel
+            const memberLabels = serializeMemberLabels(getUniqueMemberLabels(frame.data.members));
+            await findOrCreateLabels(memberLabels, frame.options);
 
             return Promise.resolve().then(() => {
                 const sanitized = sanitizeInput(frame.data.members);
@@ -511,9 +550,10 @@ const members = {
                 return {
                     meta: {
                         stats: {
-                            imported: imported,
-                            invalid: invalid
-                        }
+                            imported,
+                            invalid
+                        },
+                        import_label: importLabel
                     }
                 };
             });
