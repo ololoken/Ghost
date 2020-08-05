@@ -46,7 +46,7 @@ describe('Webhooks API (v3)', function () {
 
                 jsonResponse.webhooks[0].event.should.eql('test.create');
                 jsonResponse.webhooks[0].target_url.should.eql('http://example.com/webhooks/test/extra/v3');
-                jsonResponse.webhooks[0].integration_id.should.eql(testUtils.DataGenerator.Content.api_keys[0].id);
+                jsonResponse.webhooks[0].integration_id.should.eql(testUtils.DataGenerator.Content.api_keys[0].integration_id);
 
                 localUtils.API.checkResponse(jsonResponse.webhooks[0], 'webhook');
             });
@@ -101,6 +101,23 @@ describe('Webhooks API (v3)', function () {
                     .set('Authorization', `Ghost ${localUtils.getValidAdminToken('/v3/admin/', testUtils.DataGenerator.Content.api_keys[0])}`)
                     .expect(403);
             });
+    });
+
+    it('Integration editing non-existing webhook returns 404', function () {
+        return request.put(localUtils.API.getApiQuery(`webhooks/5f27d0287c75da744d8615da/`))
+            .set('Authorization', `Ghost ${localUtils.getValidAdminToken('/v3/admin/', testUtils.DataGenerator.Content.api_keys[0])}`)
+            .send({
+                webhooks: [{
+                    name: 'Edit Test'
+                }]
+            })
+            .expect(404);
+    });
+
+    it('Integration deleting non-existing webhook returns 404', function () {
+        return request.delete(localUtils.API.getApiQuery(`webhooks/5f27d0287c75da744d8615db/`))
+            .set('Authorization', `Ghost ${localUtils.getValidAdminToken('/v3/admin/', testUtils.DataGenerator.Content.api_keys[0])}`)
+            .expect(404);
     });
 
     it('Cannot edit webhooks using content api keys', function () {
