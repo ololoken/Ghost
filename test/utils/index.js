@@ -25,7 +25,7 @@ const settingsCache = require('../../core/server/services/settings/cache');
 const imageLib = require('../../core/server/lib/image');
 const web = require('../../core/server/web');
 const permissions = require('../../core/server/services/permissions');
-const sequence = require('../../core/server/lib/promise/sequence');
+const {sequence} = require('@tryghost/promise');
 const themes = require('../../core/frontend/services/themes');
 const DataGenerator = require('./fixtures/data-generator');
 const configUtils = require('./configUtils');
@@ -946,7 +946,7 @@ startGhost = function startGhost(options) {
         .then(function () {
             let timeout;
 
-            GhostServer.announceServerStart();
+            GhostServer.announceServerReadiness();
 
             return new Promise(function (resolve) {
                 (function retry() {

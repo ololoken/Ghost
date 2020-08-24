@@ -76,6 +76,7 @@ function initialiseServices() {
  */
 const minimalRequiredSetupToStartGhost = (dbState) => {
     const settings = require('./services/settings');
+    const jobService = require('./services/jobs');
     const models = require('./models');
     const GhostServer = require('./ghost-server');
 
@@ -112,6 +113,10 @@ const minimalRequiredSetupToStartGhost = (dbState) => {
         .then((_ghostServer) => {
             ghostServer = _ghostServer;
 
+            ghostServer.registerCleanupTask(async () => {
+                await jobService.shutdown();
+            });
+
             // CASE: all good or db was just initialised
             if (dbState === 1 || dbState === 2) {
                 events.emit('db.ready');
@@ -138,10 +143,10 @@ const minimalRequiredSetupToStartGhost = (dbState) => {
                     .then(() => {
                         config.set('maintenance:enabled', false);
                         logging.info('Blog is out of maintenance mode.');
-                        return GhostServer.announceServerStart();
+                        return GhostServer.announceServerReadiness();
                     })
                     .catch((err) => {
-                        return GhostServer.announceServerStopped(err)
+                        return GhostServer.announceServerReadiness(err)
                             .finally(() => {
                                 logging.error(err);
                                 setTimeout(() => {

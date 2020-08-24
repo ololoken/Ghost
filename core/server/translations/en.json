@@ -247,6 +247,12 @@
                 "emailNotFound": "Email not found.",
                 "retryNotAllowed": "Only failed emails can be retried"
             },
+            "member": {
+                "memberAlreadyExists": {
+                    "message": "Member already exists",
+                    "context": "Attempting to add member with existing email address."
+                }
+            },
             "base": {
                 "index": {
                     "missingContext": "missing context"
@@ -368,10 +374,6 @@
             },
             "members": {
                 "memberNotFound": "Member not found.",
-                "memberAlreadyExists": {
-                    "message": "Member already exists",
-                    "context": "Attempting to add member with existing email address."
-                },
                 "stripeNotConnected": {
                     "message": "Missing Stripe connection",
                     "context": "Attempting to import members with Stripe data when there is no Stripe account connected",
@@ -650,10 +652,10 @@
             "ghostIsRunningIn": "Ghost is running in {env}...",
             "listeningOn": "Listening on: {host}:{port}",
             "urlConfiguredAs": "Url configured as: {url}",
+            "ghostIsShuttingDown": "Ghost is shutting down",
             "ghostHasShutdown": "Ghost has shut down",
             "yourBlogIsNowOffline": "Your site is now offline",
-            "ghostWasRunningFor": "Ghost was running for",
-            "ghostIsClosingConnections": "Ghost is closing connections"
+            "ghostWasRunningFor": "Ghost was running for"
         },
         "mail": {
             "messageSent": "Message sent. Double check inbox and spam folder!"
