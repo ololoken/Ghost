@@ -452,6 +452,8 @@ module.exports = {
         stats: {type: 'text', maxlength: 65535, nullable: true},
         email_count: {type: 'integer', nullable: false, unsigned: true, defaultTo: 0},
         subject: {type: 'string', maxlength: 300, nullable: true},
+        from: {type: 'string', maxlength: 2000, nullable: true},
+        reply_to: {type: 'string', maxlength: 2000, nullable: true},
         html: {type: 'text', maxlength: 1000000000, fieldtype: 'long', nullable: true},
         plaintext: {type: 'text', maxlength: 1000000000, fieldtype: 'long', nullable: true},
         submitted_at: {type: 'dateTime', nullable: false},
@@ -459,5 +461,36 @@ module.exports = {
         created_by: {type: 'string', maxlength: 24, nullable: false},
         updated_at: {type: 'dateTime', nullable: true},
         updated_by: {type: 'string', maxlength: 24, nullable: true}
+    },
+    email_batches: {
+        id: {type: 'string', maxlength: 24, nullable: false, primary: true},
+        email_id: {type: 'string', maxlength: 24, nullable: false, references: 'emails.id'},
+        provider_id: {type: 'string', maxlength: 255, nullable: true},
+        status: {
+            type: 'string',
+            maxlength: 50,
+            nullable: false,
+            defaultTo: 'pending',
+            validations: {isIn: [['pending', 'submitting', 'submitted', 'failed']]}
+        },
+        created_at: {type: 'dateTime', nullable: false},
+        updated_at: {type: 'dateTime', nullable: false}
+    },
+    email_recipients: {
+        id: {type: 'string', maxlength: 24, nullable: false, primary: true},
+        email_id: {type: 'string', maxlength: 24, nullable: false, references: 'emails.id'},
+        member_id: {type: 'string', maxlength: 24, nullable: false, index: true},
+        batch_id: {type: 'string', maxlength: 24, nullable: false, references: 'email_batches.id'},
+        processed_at: {type: 'dateTime', nullable: true},
+        member_uuid: {type: 'string', maxlength: 36, nullable: false},
+        member_email: {type: 'string', maxlength: 191, nullable: false},
+        member_name: {type: 'string', maxlength: 191, nullable: true}
+    },
+    tokens: {
+        id: {type: 'string', maxlength: 24, nullable: false, primary: true},
+        token: {type: 'string', maxlength: 32, nullable: false, index: true},
+        data: {type: 'string', maxlength: 2000, nullable: true},
+        created_at: {type: 'dateTime', nullable: false},
+        created_by: {type: 'string', maxlength: 24, nullable: false}
     }
 };

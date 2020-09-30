@@ -302,7 +302,6 @@
         },
         "api": {
             "common": {
-                "invalidTokenStructure": "Invalid token structure",
                 "notImplemented": "The server does not support the functionality required to fulfill the request."
             },
             "authentication": {
@@ -316,11 +315,24 @@
                 "setupAlreadyCompleted": "Setup has already been completed.",
                 "unableToSendWelcomeEmail": "Unable to send welcome email, your site will continue to function.",
                 "checkEmailConfigInstructions": "Please see {url} for instructions on configuring email.",
-                "notLoggedIn": "You are not logged in.",
-                "notTheBlogOwner": "You are not the site owner.",
-                "invalidTokenTypeHint": "Invalid token_type_hint given.",
-                "invalidTokenProvided": "Invalid token provided",
-                "tokenRevocationFailed": "Token revocation failed"
+                "notTheBlogOwner": "You are not the site owner."
+            },
+            "passwordReset": {
+                "expired": {
+                    "message": "Cannot reset password.",
+                    "context": "Password reset link expired.",
+                    "help": "Request a new password reset via the login form."
+                },
+                "invalidToken": {
+                    "message": "Cannot reset password.",
+                    "context": "Password reset link has already been used.",
+                    "help": "Request a new password reset via the login form."
+                },
+                "corruptedToken": {
+                    "message": "Cannot reset password.",
+                    "context": "Invalid password reset link.",
+                    "help": "Check if password reset link has been fully copied or request new password reset via the login form."
+                }
             },
             "configuration": {
                 "invalidKey": "Invalid key"
@@ -474,6 +486,10 @@
                 "noIntegrationIdProvided": {
                     "context": "You may only create webhooks with 'integration_id' when using session authentication."
                 },
+                "nonExistingIntegrationIdProvided": {
+                    "context": "'integration_id' value does not match any existing integration.",
+                    "help": "Provide 'integration_id' of existing integration."
+                },
                 "webhookAlreadyExists": "Target URL has already been used for this event."
             },
             "oembed": {
@@ -561,7 +577,7 @@
             },
             "mega": {
                 "requestFailed": {
-                    "error" : "The email service was unable to send an email batch."
+                    "error": "The email service was unable to send an email batch."
                 }
             }
         },
@@ -699,7 +715,7 @@
                     "valueIsNotInteger": "Value in [{tableName}.{columnKey}] is not an integer.",
                     "themeCannotBeActivated": "{themeName} cannot be activated because it is not currently installed.",
                     "validationFailed": "Validation ({validationName}) failed for {key}",
-                    "schemaValidationFailed": "Validation failed for '{key}'",
+                    "schemaValidationFailed": "Validation failed for '{key}'.",
                     "validationFailedTypes": {
                         "isLength": "Value in [{tableName}.{key}] exceeds maximum length of {max} characters."
                     }

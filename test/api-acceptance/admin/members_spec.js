@@ -6,6 +6,7 @@ const testUtils = require('../../utils');
 const localUtils = require('./utils');
 const config = require('../../../core/shared/config');
 const labs = require('../../../core/server/services/labs');
+const Papa = require('papaparse');
 
 const ghost = testUtils.startGhost;
 
@@ -165,6 +166,9 @@ describe('Members API', function () {
 
                 jsonResponse.members[0].labels.length.should.equal(1);
                 jsonResponse.members[0].labels[0].name.should.equal('test-label');
+
+                should.exist(res.headers.location);
+                res.headers.location.should.equal(`http://127.0.0.1:2369${localUtils.API.getApiQuery('members/')}${res.body.members[0].id}/`);
             })
             .then(() => {
                 return request
@@ -205,6 +209,9 @@ describe('Members API', function () {
                 should.exist(jsonResponse);
                 should.exist(jsonResponse.members);
                 jsonResponse.members.should.have.length(1);
+
+                should.exist(res.headers.location);
+                res.headers.location.should.equal(`http://127.0.0.1:2369${localUtils.API.getApiQuery('members/')}${res.body.members[0].id}/`);
 
                 return jsonResponse.members[0];
             })
@@ -320,20 +327,42 @@ describe('Members API', function () {
             });
     });
 
-    it('Can export CSV', function () {
-        return request
+    it('Can export CSV', async function () {
+        const res = await request
             .get(localUtils.API.getApiQuery(`members/upload/`))
             .set('Origin', config.get('url'))
             .expect('Content-Type', /text\/csv/)
             .expect('Cache-Control', testUtils.cacheRules.private)
-            .expect(200)
-            .then((res) => {
-                should.not.exist(res.headers['x-cache-invalidate']);
-                res.headers['content-disposition'].should.match(/Attachment;\sfilename="members/);
-                res.text.should.match(/id,email,name,note,subscribed_to_emails,complimentary_plan,stripe_customer_id,created_at,deleted_at/);
-                res.text.should.match(/member1@test.com/);
-                res.text.should.match(/Mr Egg/);
-            });
+            .expect(200);
+
+        should.not.exist(res.headers['x-cache-invalidate']);
+        res.headers['content-disposition'].should.match(/Attachment;\sfilename="members/);
+        res.text.should.match(/id,email,name,note,subscribed_to_emails,complimentary_plan,stripe_customer_id,created_at,deleted_at/);
+
+        const csv = Papa.parse(res.text, {header: true});
+        should.exist(csv.data.find(row => row.name === 'Mr Egg'));
+        should.exist(csv.data.find(row => row.name === 'Egon Spengler'));
+        should.exist(csv.data.find(row => row.name === 'Ray Stantz'));
+        should.exist(csv.data.find(row => row.email === 'member2@test.com'));
+    });
+
+    it('Can export a filtered CSV', async function () {
+        const res = await request
+            .get(localUtils.API.getApiQuery(`members/upload/?search=Egg`))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /text\/csv/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200);
+
+        should.not.exist(res.headers['x-cache-invalidate']);
+        res.headers['content-disposition'].should.match(/Attachment;\sfilename="members/);
+        res.text.should.match(/id,email,name,note,subscribed_to_emails,complimentary_plan,stripe_customer_id,created_at,deleted_at/);
+
+        const csv = Papa.parse(res.text, {header: true});
+        should.exist(csv.data.find(row => row.name === 'Mr Egg'));
+        should.not.exist(csv.data.find(row => row.name === 'Egon Spengler'));
+        should.not.exist(csv.data.find(row => row.name === 'Ray Stantz'));
+        should.not.exist(csv.data.find(row => row.email === 'member2@test.com'));
     });
 
     it('Can import CSV', function () {

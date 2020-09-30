@@ -17,18 +17,18 @@ describe('Webhooks API', function () {
                 request = supertest.agent(config.get('url'));
             })
             .then(function () {
-                return localUtils.doAuth(request);
+                return localUtils.doAuth(request, 'integrations');
             });
     });
 
-    it('Can creates a webhook', function () {
+    it('Can create a webhook', function () {
         let webhookData = {
             event: 'test.create',
             target_url: 'http://example.com/webhooks/test/extra/1',
             name: 'test',
             secret: 'thisissecret',
             api_version: 'v2',
-            integration_id: '12345'
+            integration_id: testUtils.DataGenerator.Content.integrations[0].id
         };
 
         return request.post(localUtils.API.getApiQuery('webhooks/'))
@@ -50,6 +50,16 @@ describe('Webhooks API', function () {
                 jsonResponse.webhooks[0].name.should.equal(webhookData.name);
                 jsonResponse.webhooks[0].api_version.should.equal(webhookData.api_version);
                 jsonResponse.webhooks[0].integration_id.should.equal(webhookData.integration_id);
+
+                should.not.exist(res.headers.location);
+            })
+            .then(() => {
+                return request.post(localUtils.API.getApiQuery('webhooks/'))
+                    .set('Origin', config.get('url'))
+                    .send({webhooks: [webhookData]})
+                    .expect('Content-Type', /json/)
+                    .expect('Cache-Control', testUtils.cacheRules.private)
+                    .expect(422);
             });
     });
 
@@ -89,7 +99,8 @@ describe('Webhooks API', function () {
                         webhooks: [{
                             name: 'Edit Test',
                             event: 'subscriber.added',
-                            target_url: 'https://example.com/new-subscriber'
+                            target_url: 'https://example.com/new-subscriber',
+                            integration_id: 'ignore_me'
                         }]
                     })
                     .expect(200)
@@ -112,7 +123,7 @@ describe('Webhooks API', function () {
             event: 'test.create',
             // a different target_url from above is needed to avoid an "already exists" error
             target_url: 'http://example.com/webhooks/test/2',
-            integration_id: '123423'
+            integration_id: testUtils.DataGenerator.Content.integrations[0].id
         };
 
         // create the webhook that is to be deleted

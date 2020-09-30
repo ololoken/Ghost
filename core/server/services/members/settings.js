@@ -6,6 +6,9 @@ const settingsCache = require('../settings/cache');
 const logging = require('../../../shared/logging');
 const mail = require('../mail');
 const updateEmailTemplate = require('./emails/updateEmail');
+const SingleUseTokenProvider = require('./SingleUseTokenProvider');
+const models = require('../../models');
+const MAGIC_LINK_TOKEN_VALIDITY = 4 * 60 * 60 * 1000;
 
 const ghostMailer = new mail.GhostMailer();
 
@@ -36,7 +39,7 @@ function createSettingsInstance(config) {
 
             ${url}
 
-            For your security, the link will expire in 10 minutes time.
+            For your security, the link will expire in 4 hours time.
 
             ---
 
@@ -63,21 +66,26 @@ function createSettingsInstance(config) {
 
     const magicLinkService = new MagicLink({
         transporter,
-        secret: config.getAuthSecret(),
+        tokenProvider: new SingleUseTokenProvider(models.SingleUseToken, MAGIC_LINK_TOKEN_VALIDITY),
         getSigninURL,
         getText,
         getHTML,
         getSubject
     });
 
-    const sendEmailAddressUpdateMagicLink = ({email, payload = {}, type = 'fromAddressUpdate'}) => {
+    const sendEmailAddressUpdateMagicLink = ({email, type = 'fromAddressUpdate'}) => {
+        const [,toDomain] = email.split('@');
+        let fromEmail = `noreply@${toDomain}`;
+        if (fromEmail === email) {
+            fromEmail = `no-reply@${toDomain}`;
+        }
         magicLinkService.transporter = {
             sendMail(message) {
                 if (process.env.NODE_ENV !== 'production') {
                     logging.warn(message.text);
                 }
                 let msg = Object.assign({
-                    from: email,
+                    from: fromEmail,
                     subject: 'Update email address',
                     forceTextContent: true
                 }, message);
@@ -85,11 +93,12 @@ function createSettingsInstance(config) {
                 return ghostMailer.send(msg);
             }
         };
-        return magicLinkService.sendMagicLink({email, payload, subject: email, type});
+        return magicLinkService.sendMagicLink({email, tokenData: {email}, subject: email, type});
     };
 
-    const getEmailFromToken = ({token}) => {
-        return magicLinkService.getUserFromToken(token);
+    const getEmailFromToken = async ({token}) => {
+        const data = await magicLinkService.getDataFromToken(token);
+        return data.email;
     };
 
     const getAdminRedirectLink = ({type}) => {

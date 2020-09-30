@@ -43,12 +43,12 @@ function getMembersHelper() {
     const stripeConnectAccountId = settingsCache.get('stripe_connect_account_id');
 
     let membersHelper = `<script defer src="${getAssetUrl('public/members.js', true)}"></script>`;
-    if (config.get('enableDeveloperExperiments')) {
-        membersHelper = `<script defer src="https://unpkg.com/@tryghost/members-js@latest/umd/members.min.js" data-ghost="${urlUtils.getSiteUrl()}"></script>`;
+    if (config.get('enableDeveloperExperiments') || config.get('portal')) {
+        membersHelper = `<script defer src="https://unpkg.com/@tryghost/portal@latest/umd/portal.min.js" data-ghost="${urlUtils.getSiteUrl()}"></script>`;
+        membersHelper += (`<style type='text/css'> ${templateStyles}</style>`);
     }
     if ((!!stripeDirectSecretKey && !!stripeDirectPublishableKey) || !!stripeConnectAccountId) {
         membersHelper += '<script async src="https://js.stripe.com/v3/"></script>';
-        membersHelper += (`<style type='text/css'> ${templateStyles}</style>`);
     }
     return membersHelper;
 }
