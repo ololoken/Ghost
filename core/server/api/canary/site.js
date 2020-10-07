@@ -20,7 +20,7 @@ const site = {
             };
 
             // accent_color is currently an experimental feature
-            if (!config.get('enableDeveloperExperiments')) {
+            if (!config.get('enableDeveloperExperiments') && !config.get('portal')) {
                 delete response.accent_color;
             }
 
