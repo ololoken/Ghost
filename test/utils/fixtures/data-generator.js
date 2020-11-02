@@ -461,6 +461,14 @@ DataGenerator.Content = {
             plaintext: 'yes this is an email',
             submitted_at: moment().toDate()
         }
+    ],
+
+    snippets: [
+        {
+            id: ObjectId.generate(),
+            name: 'Test snippet 1',
+            mobiledoc: '{}'
+        }
     ]
 };
 
@@ -808,7 +816,7 @@ DataGenerator.forKnex = (function () {
         {
             id: ObjectId.generate(),
             post_id: DataGenerator.Content.posts[2].id,
-            meta_description: 'test stuff'
+            meta_description: 'meta description for short and sweet'
         },
         {
             id: ObjectId.generate(),
@@ -975,6 +983,10 @@ DataGenerator.forKnex = (function () {
         createBasic(DataGenerator.Content.members_stripe_customers_subscriptions[1])
     ];
 
+    const snippets = [
+        createBasic(DataGenerator.Content.snippets[0])
+    ];
+
     return {
         createPost,
         createGenericPost,
@@ -1016,7 +1028,8 @@ DataGenerator.forKnex = (function () {
         members,
         members_labels,
         members_stripe_customers,
-        stripe_customer_subscriptions
+        stripe_customer_subscriptions,
+        snippets
     };
 }());
 

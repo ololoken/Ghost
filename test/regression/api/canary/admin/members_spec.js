@@ -90,6 +90,22 @@ describe('Members API', function () {
             });
     });
 
+    it('Search for non existing member returns empty result set', function () {
+        return request
+            .get(localUtils.API.getApiQuery('members/?search=do_not_exist'))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200)
+            .then((res) => {
+                should.not.exist(res.headers['x-cache-invalidate']);
+                const jsonResponse = res.body;
+                should.exist(jsonResponse);
+                should.exist(jsonResponse.members);
+                jsonResponse.members.should.have.length(0);
+            });
+    });
+
     it('Add should fail when passing incorrect email_type query parameter', function () {
         const member = {
             name: 'test',
@@ -103,6 +119,30 @@ describe('Members API', function () {
             .expect('Content-Type', /json/)
             .expect('Cache-Control', testUtils.cacheRules.private)
             .expect(422);
+    });
+
+    it('Add should fail when comped flag is passed in but Stripe is not enabled', function () {
+        const member = {
+            email: 'memberTestAdd@test.com',
+            comped: true
+        };
+
+        return request
+            .post(localUtils.API.getApiQuery(`members/`))
+            .send({members: [member]})
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(422)
+            .then((res) => {
+                const jsonResponse = res.body;
+
+                should.exist(jsonResponse);
+                should.exist(jsonResponse.errors);
+
+                jsonResponse.errors[0].message.should.eql('Validation error, cannot save member.');
+                jsonResponse.errors[0].context.should.match(/Missing Stripe connection./);
+            });
     });
 
     // NOTE: this test should be enabled and expanded once test suite fully supports Stripe mocking
@@ -450,7 +490,7 @@ describe('Members API', function () {
                 jsonResponse.meta.stats.invalid.count.should.equal(2);
 
                 should.equal(jsonResponse.meta.stats.invalid.errors.length, 1);
-                jsonResponse.meta.stats.invalid.errors[0].message.should.equal('Missing Stripe connection');
+                jsonResponse.meta.stats.invalid.errors[0].message.should.match(/Missing Stripe connection/);
 
                 should.not.exist(jsonResponse.meta.import_label);
             });
