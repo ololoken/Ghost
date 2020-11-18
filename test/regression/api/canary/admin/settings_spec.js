@@ -39,6 +39,8 @@ const defaultSettingsKeyTypes = [
     {key: 'members_from_address', type: 'members'},
     {key: 'members_support_address', type: 'members'},
     {key: 'members_reply_address', type: 'members'},
+    {key: 'members_paid_signup_redirect', type: 'members'},
+    {key: 'members_free_signup_redirect', type: 'members'},
     {key: 'stripe_product_name', type: 'members'},
     {key: 'stripe_plans', type: 'members'},
     {key: 'stripe_secret_key', type: 'members'},
@@ -65,7 +67,11 @@ const defaultSettingsKeyTypes = [
     {key: 'shared_views', type: 'blog'},
     {key: 'active_timezone', type: 'blog'},
     {key: 'default_locale', type: 'blog'},
-    {key: 'accent_color', type: 'blog'}
+    {key: 'accent_color', type: 'blog'},
+    {key: 'newsletter_show_badge', type: 'newsletter'},
+    {key: 'newsletter_show_header', type: 'newsletter'},
+    {key: 'newsletter_body_font_category', type: 'newsletter'},
+    {key: 'newsletter_footer_content', type: 'newsletter'}
 ];
 
 describe('Settings API (canary)', function () {
@@ -99,7 +105,6 @@ describe('Settings API (canary)', function () {
 
                     jsonResponse.settings.should.be.an.Object();
                     const settings = jsonResponse.settings;
-
                     should.equal(settings.length, defaultSettingsKeyTypes.length);
                     for (const defaultSetting of defaultSettingsKeyTypes) {
                         should.exist(settings.find((setting) => {

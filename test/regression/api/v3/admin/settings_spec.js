@@ -39,6 +39,8 @@ const defaultSettingsKeys = [
     'members_from_address',
     'members_support_address',
     'members_reply_address',
+    'members_free_signup_redirect',
+    'members_paid_signup_redirect',
     'stripe_product_name',
     'stripe_plans',
     'stripe_secret_key',
@@ -65,7 +67,11 @@ const defaultSettingsKeys = [
     'shared_views',
     'active_timezone',
     'default_locale',
-    'accent_color'
+    'accent_color',
+    'newsletter_show_badge',
+    'newsletter_show_header',
+    'newsletter_body_font_category',
+    'newsletter_footer_content'
 ];
 
 describe('Settings API (v3)', function () {
