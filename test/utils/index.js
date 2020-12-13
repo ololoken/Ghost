@@ -22,6 +22,7 @@ const routingService = require('../../core/frontend/services/routing');
 const settingsService = require('../../core/server/services/settings');
 const frontendSettingsService = require('../../core/frontend/services/settings');
 const settingsCache = require('../../core/server/services/settings/cache');
+const emailAnalyticsService = require('../../core/server/services/email-analytics');
 const imageLib = require('../../core/server/lib/image');
 const web = require('../../core/server/web');
 const permissions = require('../../core/server/services/permissions');
@@ -120,6 +121,14 @@ fixtures = {
                 return models.Post.add(posts[index], module.exports.context.internal);
             });
         });
+    },
+
+    insertEmailedPosts: function insertEmailedPosts({postCount = 2} = {}) {
+        const posts = [];
+
+        for (let i = 0; i < postCount; i++) {
+            posts.push(DataGenerator.forKnex.createGenericPost);
+        }
     },
 
     insertExtraPosts: function insertExtraPosts(max) {
@@ -493,6 +502,27 @@ fixtures = {
         });
     },
 
+    insertEmailsAndRecipients: function insertEmailsAndRecipients() {
+        return Promise.each(_.cloneDeep(DataGenerator.forKnex.emails), function (email) {
+            return models.Email.add(email, module.exports.context.internal);
+        }).then(function () {
+            return Promise.each(_.cloneDeep(DataGenerator.forKnex.email_batches), function (emailBatch) {
+                return models.EmailBatch.add(emailBatch, module.exports.context.internal);
+            });
+        }).then(function () {
+            return Promise.each(_.cloneDeep(DataGenerator.forKnex.email_recipients), (emailRecipient) => {
+                return models.EmailRecipient.add(emailRecipient, module.exports.context.internal);
+            });
+        }).then(function () {
+            const toAggregate = {
+                emailIds: DataGenerator.forKnex.emails.map(email => email.id),
+                memberIds: DataGenerator.forKnex.members.map(member => member.id)
+            };
+
+            return emailAnalyticsService.aggregateStats(toAggregate);
+        });
+    },
+
     insertSnippets: function insertSnippets() {
         return Promise.map(DataGenerator.forKnex.snippets, function (snippet) {
             return models.Snippet.add(snippet, module.exports.context.internal);
@@ -567,6 +597,9 @@ toDoList = {
     },
     members: function insertMembersAndLabels() {
         return fixtures.insertMembersAndLabels();
+    },
+    'members:emails': function insertEmailsAndRecipients() {
+        return fixtures.insertEmailsAndRecipients();
     },
     posts: function insertPostsAndTags() {
         return fixtures.insertPostsAndTags();
@@ -747,6 +780,19 @@ const createPost = function createPost(options) {
 
     post.authors = [{id: post.author_id}];
     return models.Post.add(post, module.exports.context.internal);
+};
+
+const createEmail = function createEmail(options) {
+    const email = DataGenerator.forKnex.createEmail(options.email);
+    return models.Email.add(email, module.exports.context.internal);
+};
+
+const createEmailedPost = async function createEmailedPost({postOptions, emailOptions}) {
+    const post = await createPost(postOptions);
+    emailOptions.email.post_id = post.id;
+    const email = await createEmail(emailOptions);
+
+    return {post, email};
 };
 
 /**
@@ -1131,6 +1177,7 @@ module.exports = {
     setup: setup,
     createUser: createUser,
     createPost: createPost,
+    createEmailedPost,
 
     /**
      * renderObject:    res.render(view, dbResponse)

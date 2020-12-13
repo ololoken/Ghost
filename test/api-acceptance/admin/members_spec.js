@@ -20,7 +20,7 @@ describe('Members API', function () {
     before(async function () {
         await testUtils.startGhost();
         request = supertest.agent(config.get('url'));
-        await localUtils.doAuth(request, 'members');
+        await localUtils.doAuth(request, 'members', 'members:emails');
         sinon.stub(labs, 'isSet').withArgs('members').returns(true);
     });
 
@@ -121,6 +121,25 @@ describe('Members API', function () {
         should.exist(jsonResponse.members);
         jsonResponse.members.should.have.length(1);
         localUtils.API.checkResponse(jsonResponse.members[0], 'member', 'stripe');
+    });
+
+    it('Can read and include email_recipients', async function () {
+        const res = await request
+            .get(localUtils.API.getApiQuery(`members/${testUtils.DataGenerator.Content.members[0].id}/?include=email_recipients`))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200);
+
+        should.not.exist(res.headers['x-cache-invalidate']);
+        const jsonResponse = res.body;
+        should.exist(jsonResponse);
+        should.exist(jsonResponse.members);
+        jsonResponse.members.should.have.length(1);
+        localUtils.API.checkResponse(jsonResponse.members[0], 'member', ['stripe', 'email_recipients']);
+        jsonResponse.members[0].email_recipients.length.should.equal(1);
+        localUtils.API.checkResponse(jsonResponse.members[0].email_recipients[0], 'email_recipient', ['email']);
+        localUtils.API.checkResponse(jsonResponse.members[0].email_recipients[0].email, 'email');
     });
 
     it('Can add', async function () {
@@ -261,49 +280,6 @@ describe('Members API', function () {
             .expect(404);
     });
 
-    it('Can validate import data', async function () {
-        const member = {
-            name: 'test',
-            email: 'memberTestAdd@test.com'
-        };
-
-        const res = await request
-            .post(localUtils.API.getApiQuery(`members/upload/validate`))
-            .send({members: [member]})
-            .set('Origin', config.get('url'))
-            .expect('Content-Type', /json/)
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            .expect(200);
-
-        should.not.exist(res.headers['x-cache-invalidate']);
-        const jsonResponse = res.body;
-        should.exist(jsonResponse);
-        should.not.exist(jsonResponse.members);
-    });
-
-    it('Fails to validate import data when stripe_customer_id is present but Stripe is not connected', async function () {
-        const member = {
-            name: 'test',
-            email: 'memberTestAdd@test.com',
-            stripe_customer_id: 'cus_XXXXX'
-        };
-
-        const res = await request
-            .post(localUtils.API.getApiQuery(`members/upload/validate`))
-            .send({members: [member]})
-            .set('Origin', config.get('url'))
-            .expect('Content-Type', /json/)
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            .expect(422);
-
-        should.not.exist(res.headers['x-cache-invalidate']);
-        const jsonResponse = res.body;
-        should.exist(jsonResponse);
-        should.exist(jsonResponse.errors);
-        jsonResponse.errors[0].message.should.match(/Missing Stripe connection/i);
-        jsonResponse.errors[0].context.should.match(/no Stripe account connected/i);
-    });
-
     it('Can export CSV', async function () {
         const res = await request
             .get(localUtils.API.getApiQuery(`members/upload/`))
@@ -358,8 +334,8 @@ describe('Members API', function () {
         should.exist(jsonResponse.meta);
         should.exist(jsonResponse.meta.stats);
 
-        jsonResponse.meta.stats.imported.count.should.equal(2);
-        jsonResponse.meta.stats.invalid.count.should.equal(0);
+        jsonResponse.meta.stats.imported.should.equal(2);
+        jsonResponse.meta.stats.invalid.length.should.equal(0);
         jsonResponse.meta.import_label.name.should.match(/^Import \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
 
         const importLabel = jsonResponse.meta.import_label;

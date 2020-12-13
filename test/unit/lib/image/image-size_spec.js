@@ -1,43 +1,24 @@
 const should = require('should');
 const sinon = require('sinon');
-const rewire = require('rewire');
 const nock = require('nock');
 const path = require('path');
-const configUtils = require('../../../utils/configUtils');
-const urlUtils = require('../../../../core/shared/url-utils');
 const errors = require('@tryghost/errors');
-const storage = require('../../../../core/server/adapters/storage');
+const fs = require('fs');
+const ImageSize = require('../../../../core/server/lib/image/image-size');
 
 describe('lib/image: image size', function () {
-    let imageSize;
-    let sizeOf;
-    let sizeOfSpy;
-    let probeSizeOf;
-    let probeSizeOfSpy;
-    let originalStoragePath;
-
     // use a 1x1 gif in nock responses because it's really small and easy to work with
     const GIF1x1 = Buffer.from('R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', 'base64');
 
-    beforeEach(function () {
-        imageSize = rewire('../../../../core/server/lib/image/image-size');
-
-        sizeOf = imageSize.__get__('sizeOf');
-        sizeOfSpy = sinon.spy(sizeOf);
-
-        probeSizeOf = imageSize.__get__('probeSizeOf');
-        probeSizeOfSpy = sinon.spy(probeSizeOf);
-
-        originalStoragePath = storage.getStorage().storagePath;
-    });
-
     afterEach(function () {
         sinon.restore();
-        configUtils.restore();
-        storage.getStorage().storagePath = originalStoragePath;
+        nock.cleanAll();
     });
 
     it('[success] should have an image size function', function () {
+        const imageSize = new ImageSize({config: {
+            get: () => {}
+        }, i18n: {}, storage: {}, storageUtils: {}, validator: {}, urlUtils: {}, request: {}});
         should.exist(imageSize.getImageSizeFromUrl);
         should.exist(imageSize.getImageSizeFromStoragePath);
     });
@@ -55,10 +36,15 @@ describe('lib/image: image size', function () {
                 .get('/files/f/feedough/x/11/1540353_20925115.jpg')
                 .reply(200, GIF1x1);
 
-            imageSize.getImageSizeFromUrl(url).then(function (res) {
-                probeSizeOfSpy.should.have.been.called;
-                sizeOfSpy.should.not.have.been.called;
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {}, request: {}});
 
+            imageSize.getImageSizeFromUrl(url).then(function (res) {
                 requestMock.isDone().should.be.true();
                 should.exist(res);
                 res.width.should.be.equal(expectedImageObject.width);
@@ -69,22 +55,32 @@ describe('lib/image: image size', function () {
         });
 
         it('[success] should return image dimensions from fetch request for non-probe-supported extension', function (done) {
-            const url = 'https://static.wixstatic.com/media/355241_d31358572a2542c5a44738ddcb59e7ea.ico';
+            const url = 'https://static.wixstatic.com/media/355241_d31358572a2542c5a44738ddcb59e7ea.cur';
             const expectedImageObject = {
                 height: 1,
-                url: 'https://static.wixstatic.com/media/355241_d31358572a2542c5a44738ddcb59e7ea.ico',
+                url: 'https://static.wixstatic.com/media/355241_d31358572a2542c5a44738ddcb59e7ea.cur',
                 width: 1
             };
 
-            const requestMock = nock('https://static.wixstatic.com')
-                .get('/media/355241_d31358572a2542c5a44738ddcb59e7ea.ico')
-                .reply(200, GIF1x1);
+            const requestMock = nock('https://static.wixstatic.com').get('/random-path').reply(404);
+
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {}, request: (requestUrl) => {
+                if (requestUrl === url) {
+                    return Promise.resolve({
+                        body: GIF1x1
+                    });
+                }
+                return Promise.reject();
+            }});
 
             imageSize.getImageSizeFromUrl(url).then(function (res) {
-                sizeOfSpy.should.have.been.called;
-                probeSizeOfSpy.should.not.have.been.called;
-
-                requestMock.isDone().should.be.true();
+                requestMock.isDone().should.be.false();
                 should.exist(res);
                 res.width.should.be.equal(expectedImageObject.width);
                 res.height.should.be.equal(expectedImageObject.height);
@@ -105,8 +101,15 @@ describe('lib/image: image size', function () {
                 .get('/logo/18163505/minilogo')
                 .reply(200, GIF1x1);
 
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {}, request: {}});
+
             imageSize.getImageSizeFromUrl(url).then(function (res) {
-                probeSizeOfSpy.should.have.been.called;
                 requestMock.isDone().should.be.true();
                 should.exist(res);
                 res.width.should.be.equal(expectedImageObject.width);
@@ -124,12 +127,25 @@ describe('lib/image: image size', function () {
                 width: 64
             };
 
-            const requestMock = nock('https://super-website.com')
-                .get('/media/icon.ico')
-                .replyWithFile(200, path.join(__dirname, '/../../../utils/fixtures/images/favicon_multi_sizes.ico'));
+            const requestMock = nock('https://super-website.com').get('/random-path').reply(404);
+
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {}, request: (requestUrl) => {
+                if (requestUrl === url) {
+                    return Promise.resolve({
+                        body: fs.readFileSync(path.join(__dirname, '/../../../utils/fixtures/images/favicon_multi_sizes.ico'))
+                    });
+                }
+                return Promise.reject();
+            }});
 
             imageSize.getImageSizeFromUrl(url).then(function (res) {
-                requestMock.isDone().should.be.true();
+                requestMock.isDone().should.be.false();
                 should.exist(res);
                 res.width.should.be.equal(expectedImageObject.width);
                 res.height.should.be.equal(expectedImageObject.height);
@@ -146,17 +162,38 @@ describe('lib/image: image size', function () {
                 width: 1
             };
 
-            const urlForStub = sinon.stub(urlUtils, 'urlFor');
-            urlForStub.withArgs('home').returns('http://myblog.com/');
-            const urlGetSubdirStub = sinon.stub(urlUtils, 'getSubdir');
-            urlGetSubdirStub.returns('');
+            const urlForStub = sinon.stub().withArgs('home').returns('http://myblog.com/');
+            const urlGetSubdirStub = sinon.stub().returns('');
 
             const requestMock = nock('http://myblog.com')
                 .get('/assets/img/logo.png?v=d30c3d1e41')
                 .reply(200, GIF1x1);
 
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {
+                urlFor: urlForStub,
+                getSubdir: urlGetSubdirStub,
+                urlJoin: function () {
+                    if ([...arguments].join('') === 'http://myblog.com///assets/img/logo.png?v=d30c3d1e41') {
+                        return expectedImageObject.url;
+                    }
+                    return '';
+                }
+            }, request: (requestUrl) => {
+                if (requestUrl === url) {
+                    return Promise.resolve({
+                        body: GIF1x1
+                    });
+                }
+                return Promise.reject();
+            }});
+
             imageSize.getImageSizeFromUrl(url).then(function (res) {
-                probeSizeOfSpy.should.have.been.called;
                 requestMock.isDone().should.be.true();
                 should.exist(res);
                 res.width.should.be.equal(expectedImageObject.width);
@@ -178,8 +215,15 @@ describe('lib/image: image size', function () {
                 .get('/avatar/ef6dcde5c99bb8f685dd451ccc3e050a?s=250&d=mm&r=x')
                 .reply(200, GIF1x1);
 
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {}, request: {}});
+
             imageSize.getImageSizeFromUrl(url).then(function (res) {
-                probeSizeOfSpy.should.have.been.called;
                 requestMock.isDone().should.be.true();
                 should.exist(res);
                 res.width.should.be.equal(expectedImageObject.width);
@@ -207,38 +251,15 @@ describe('lib/image: image size', function () {
                 .get('/files/f/feedough/x/11/1540353_20925115.jpg')
                 .reply(200, GIF1x1);
 
-            imageSize.getImageSizeFromUrl(url).then(function (res) {
-                probeSizeOfSpy.should.have.been.called;
-                requestMock.isDone().should.be.true();
-                secondRequestMock.isDone().should.be.true();
-                should.exist(res);
-                res.width.should.be.equal(expectedImageObject.width);
-                res.height.should.be.equal(expectedImageObject.height);
-                res.url.should.be.equal(expectedImageObject.url);
-                done();
-            }).catch(done);
-        });
-
-        it('[success] can handle redirect (image-size)', function (done) {
-            const url = 'http://noimagehere.com/files/f/feedough/x/11/1540353_20925115.gif';
-            const expectedImageObject = {
-                height: 1,
-                url: 'http://noimagehere.com/files/f/feedough/x/11/1540353_20925115.gif',
-                width: 1
-            };
-
-            const requestMock = nock('http://noimagehere.com')
-                .get('/files/f/feedough/x/11/1540353_20925115.gif')
-                .reply(301, null, {
-                    location: 'http://someredirectedurl.com/files/f/feedough/x/11/1540353_20925115.gif'
-                });
-
-            const secondRequestMock = nock('http://someredirectedurl.com')
-                .get('/files/f/feedough/x/11/1540353_20925115.gif')
-                .reply(200, GIF1x1);
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {}, request: {}});
 
             imageSize.getImageSizeFromUrl(url).then(function (res) {
-                sizeOfSpy.should.have.been.called;
                 requestMock.isDone().should.be.true();
                 secondRequestMock.isDone().should.be.true();
                 should.exist(res);
@@ -257,11 +278,11 @@ describe('lib/image: image size', function () {
                 width: 100
             };
 
-            storage.getStorage().storagePath = path.join(__dirname, '../../../../test/utils/fixtures/images/');
-            const urlForStub = sinon.stub(urlUtils, 'urlFor');
+            const storagePath = path.join(__dirname, '../../../../test/utils/fixtures/images/');
+            const urlForStub = sinon.stub();
             urlForStub.withArgs('image').returns('http://myblog.com/content/images/favicon.png');
             urlForStub.withArgs('home').returns('http://myblog.com/');
-            const urlGetSubdirStub = sinon.stub(urlUtils, 'getSubdir');
+            const urlGetSubdirStub = sinon.stub();
             urlGetSubdirStub.returns('');
 
             const requestMock = nock('http://myblog.com')
@@ -269,6 +290,20 @@ describe('lib/image: image size', function () {
                 .reply(200, {
                     body: '<Buffer 2c be a4 40 f7 87 73 1e 57 2c c1 e4 0d 79 03 95 42 f0 42 2e 41 95 27 c9 5c 35 a7 71 2c 09 5a 57 d3 04 1e 83 03 28 07 96 b0 c8 88 65 07 7a d1 d6 63 50>'
                 });
+
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {
+                getStorage: () => ({
+                    read: obj => fs.promises.readFile(obj.path)
+                })
+            }, storageUtils: {
+                isLocalImage: () => true,
+                getLocalFileStoragePath: imageUrl => path.join(storagePath, imageUrl.replace(/.*\//, ''))
+            }, validator: {}, urlUtils: {
+                urlFor: urlForStub,
+                getSubdir: urlGetSubdirStub
+            }, request: {}});
 
             imageSize.getImageSizeFromUrl(url).then(function (res) {
                 requestMock.isDone().should.be.false();
@@ -290,37 +325,72 @@ describe('lib/image: image size', function () {
                 .get('/files/f/feedough/x/11/1540353_20925115.jpg')
                 .reply(404);
 
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {}, request: {}});
+
             imageSize.getImageSizeFromUrl(url)
                 .catch(function (err) {
-                    probeSizeOfSpy.should.have.been.called;
                     requestMock.isDone().should.be.true();
                     should.exist(err);
                     err.errorType.should.be.equal('NotFoundError');
                     err.message.should.be.equal('Image not found.');
                     done();
-                });
+                }).catch(done);
         });
 
         it('[failure] can handle an error with statuscode not 200 (image-size)', function (done) {
-            const url = 'http://noimagehere.com/files/f/feedough/x/11/1540353_20925115.gif';
+            const url = 'http://noimagehere.com/files/f/feedough/x/11/1540353_20925115.cur';
 
             const requestMock = nock('http://noimagehere.com')
-                .get('/files/f/feedough/x/11/1540353_20925115.gif')
+                .get('/files/f/feedough/x/11/1540353_20925115.cur')
                 .reply(404);
+
+            class NotFound extends Error {
+                constructor(message) {
+                    super(message);
+                    this.code = 'ENOENT';
+                    this.statusCode = 404;
+                }
+            }
+
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {}, request: (requestUrl) => {
+                if (requestUrl === url) {
+                    return Promise.reject(new NotFound());
+                }
+                return Promise.reject();
+            }});
 
             imageSize.getImageSizeFromUrl(url)
                 .catch(function (err) {
-                    sizeOfSpy.should.have.been.called;
-                    requestMock.isDone().should.be.true();
+                    requestMock.isDone().should.be.false();
                     should.exist(err);
                     err.errorType.should.be.equal('NotFoundError');
                     err.message.should.be.equal('Image not found.');
                     done();
-                });
+                }).catch(done);
         });
 
         it('[failure] handles invalid URL', function (done) {
             const url = 'Not-a-valid-url';
+
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => false
+            }, urlUtils: {}, request: {}});
 
             imageSize.getImageSizeFromUrl(url)
                 .catch(function (err) {
@@ -328,7 +398,7 @@ describe('lib/image: image size', function () {
                     err.errorType.should.be.equal('InternalServerError');
                     err.message.should.be.equal('URL empty or invalid.');
                     done();
-                });
+                }).catch(done);
         });
 
         it('[failure] will timeout', function (done) {
@@ -336,10 +406,21 @@ describe('lib/image: image size', function () {
 
             const requestMock = nock('https://static.wixstatic.com')
                 .get('/media/355241_d31358572a2542c5a44738ddcb59e7ea.jpg_256')
-                .delayConnection(11)
+                .delayConnection(10)
                 .reply(408);
+            
+            const imageSize = new ImageSize({config: {
+                get: (key) => {
+                    if (key === 'times:getImageSizeTimeoutInMS') {
+                        return 1;
+                    }
+                }
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {}, request: {}});
 
-            configUtils.set('times:getImageSizeTimeoutInMS', 10);
             imageSize.getImageSizeFromUrl(url)
                 .catch(function (err) {
                     requestMock.isDone().should.be.true();
@@ -347,69 +428,90 @@ describe('lib/image: image size', function () {
                     err.errorType.should.be.equal('InternalServerError');
                     err.message.should.be.equal('Request timed out.');
                     done();
-                });
+                }).catch(done);
         });
 
         it('[failure] returns error if \`probe-image-size`\ module throws error', function (done) {
             const url = 'https://static.wixstatic.com/media/355241_d31358572a2542c5a44738ddcb59e7ea.jpg';
 
-            const probeSizeOfStub = sinon.stub();
-            probeSizeOfStub.throws({error: 'probe-image-size could not find dimensions'});
-            imageSize.__set__('probeSizeOf', probeSizeOfStub);
+            const requestMock = nock('https://static.wixstatic.com')
+                .get('/media/355241_d31358572a2542c5a44738ddcb59e7ea.jpg')
+                .reply(200, Buffer.from('FFD8 FFC0 0004 00112233 FFD9'.replace(/ /g, ''), 'hex'));
+
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {}, request: {}});
 
             imageSize.getImageSizeFromUrl(url)
                 .then(() => {
                     true.should.be.false('succeeded when expecting failure');
                 })
                 .catch(function (err) {
+                    requestMock.isDone().should.be.true();
                     should.exist(err);
                     err.errorType.should.be.equal('InternalServerError');
-                    err.error.should.be.equal('probe-image-size could not find dimensions');
                     done();
-                });
+                }).catch(done);
         });
 
         it('[failure] returns error if \`image-size`\ module throws error', function (done) {
-            const url = 'https://static.wixstatic.com/media/355241_d31358572a2542c5a44738ddcb59e7ea.ico';
+            const url = 'https://static.wixstatic.com/media/355241_d31358572a2542c5a44738ddcb59e7ea.cur';
 
             const requestMock = nock('https://static.wixstatic.com')
-                .get('/media/355241_d31358572a2542c5a44738ddcb59e7ea.ico')
-                .reply(200, {
-                    body: '<Buffer 2c be a4 40 f7 87 73 1e 57 2c c1 e4 0d 79 03 95 42 f0 42 2e 41 95 27 c9 5c 35 a7 71 2c 09 5a 57 d3 04 1e 83 03 28 07 96 b0 c8 88 65 07 7a d1 d6 63 50>'
-                });
+                .get('/media/nope.cur')
+                .reply(404);
 
-            const sizeOfStub = sinon.stub();
-            sizeOfStub.throws({error: 'image-size could not find dimensions'});
-            imageSize.__set__('sizeOf', sizeOfStub);
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {}, request: (requestUrl) => {
+                if (requestUrl === url) {
+                    return Promise.resolve({
+                        body: Buffer.from('2c be a4 40 f7 87 73 1e 57 2c c1 e4 0d 79 03 95 42 f0 42 2e 41 95 27 c9 5c 35 a7 71 2c 09 5a 57 d3 04 1e 83 03 28 07 96 b0 c8 88 65 07 7a d1 d6 63 50'.replace(/ /g, ''), 'hex')
+                    });
+                }
+                return Promise.reject();
+            }});
 
             imageSize.getImageSizeFromUrl(url)
                 .then(() => {
                     true.should.be.false('succeeded when expecting failure');
                 })
                 .catch(function (err) {
-                    requestMock.isDone().should.be.true();
+                    requestMock.isDone().should.be.false();
                     should.exist(err);
                     err.errorType.should.be.equal('InternalServerError');
-                    err.error.should.be.equal('image-size could not find dimensions');
                     done();
-                });
+                }).catch(done);
         });
 
         it('[failure] returns error if request errors', function (done) {
-            const url = 'https://notarealwebsite.com/images/notapicture.jpg';
+            const url = 'https://notarealwebsite.com/images/notapicture.dds';
 
-            const requestMock = nock('https://notarealwebsite.com')
-                .get('/images/notapicture.jpg')
-                .reply(500, {message: 'something awful happened', code: 'AWFUL_ERROR'});
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {}, storageUtils: {
+                isLocalImage: () => false
+            }, validator: {
+                isURL: () => true
+            }, urlUtils: {}, request: () => {
+                return Promise.reject({});
+            }});
 
             imageSize.getImageSizeFromUrl(url)
                 .catch(function (err) {
-                    requestMock.isDone().should.be.true();
                     should.exist(err);
                     err.errorType.should.be.equal('InternalServerError');
                     err.message.should.be.equal('Unknown Request error.');
                     done();
-                });
+                }).catch(done);
         });
     });
 
@@ -422,12 +524,28 @@ describe('lib/image: image size', function () {
                 width: 800
             };
 
-            storage.getStorage().storagePath = path.join(__dirname, '../../../../test/utils/fixtures/images/');
-            const urlForStub = sinon.stub(urlUtils, 'urlFor');
+            const storagePath = path.join(__dirname, '../../../../test/utils/fixtures/images/');
+            const urlForStub = sinon.stub();
             urlForStub.withArgs('image').returns('http://myblog.com/content/images/ghost-logo.png');
             urlForStub.withArgs('home').returns('http://myblog.com/');
-            const urlGetSubdirStub = sinon.stub(urlUtils, 'getSubdir');
+            const urlGetSubdirStub = sinon.stub();
             urlGetSubdirStub.returns('');
+
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {
+                getStorage: () => ({
+                    read: obj => fs.promises.readFile(obj.path)
+                })
+            }, storageUtils: {
+                isLocalImage: () => true,
+                getLocalFileStoragePath: imageUrl => path.join(storagePath, imageUrl.replace(/.*\//, ''))
+            }, validator: {}, urlUtils: {
+                urlFor: urlForStub,
+                getSubdir: urlGetSubdirStub
+            }, request: () => {
+                return Promise.reject({});
+            }});
 
             imageSize.getImageSizeFromStoragePath(url).then(function (res) {
                 should.exist(res);
@@ -449,12 +567,28 @@ describe('lib/image: image size', function () {
                 width: 1010
             };
 
-            storage.getStorage().storagePath = path.join(__dirname, '../../../../test/utils/fixtures/images/');
-            const urlForStub = sinon.stub(urlUtils, 'urlFor');
+            const storagePath = path.join(__dirname, '../../../../test/utils/fixtures/images/');
+            const urlForStub = sinon.stub();
             urlForStub.withArgs('image').returns('http://myblog.com/blog/content/images/favicon_too_large.png');
             urlForStub.withArgs('home').returns('http://myblog.com/');
-            const urlGetSubdirStub = sinon.stub(urlUtils, 'getSubdir');
+            const urlGetSubdirStub = sinon.stub();
             urlGetSubdirStub.returns('/blog');
+
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {
+                getStorage: () => ({
+                    read: obj => fs.promises.readFile(obj.path)
+                })
+            }, storageUtils: {
+                isLocalImage: () => true,
+                getLocalFileStoragePath: imageUrl => path.join(storagePath, imageUrl.replace(/.*\//, ''))
+            }, validator: {}, urlUtils: {
+                urlFor: urlForStub,
+                getSubdir: urlGetSubdirStub
+            }, request: () => {
+                return Promise.reject({});
+            }});
 
             imageSize.getImageSizeFromStoragePath(url).then(function (res) {
                 should.exist(res);
@@ -476,12 +610,28 @@ describe('lib/image: image size', function () {
                 width: 64
             };
 
-            storage.getStorage().storagePath = path.join(__dirname, '../../../../test/utils/fixtures/images/');
-            const urlForStub = sinon.stub(urlUtils, 'urlFor');
+            const storagePath = path.join(__dirname, '../../../../test/utils/fixtures/images/');
+            const urlForStub = sinon.stub();
             urlForStub.withArgs('image').returns('http://myblog.com/content/images/favicon_multi_sizes.ico');
             urlForStub.withArgs('home').returns('http://myblog.com/');
-            const urlGetSubdirStub = sinon.stub(urlUtils, 'getSubdir');
+            const urlGetSubdirStub = sinon.stub();
             urlGetSubdirStub.returns('');
+
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {
+                getStorage: () => ({
+                    read: obj => fs.promises.readFile(obj.path)
+                })
+            }, storageUtils: {
+                isLocalImage: () => true,
+                getLocalFileStoragePath: imageUrl => path.join(storagePath, imageUrl.replace(/.*\//, ''))
+            }, validator: {}, urlUtils: {
+                urlFor: urlForStub,
+                getSubdir: urlGetSubdirStub
+            }, request: () => {
+                return Promise.reject({});
+            }});
 
             imageSize.getImageSizeFromStoragePath(url).then(function (res) {
                 should.exist(res);
@@ -498,41 +648,71 @@ describe('lib/image: image size', function () {
         it('[failure] returns error if storage adapter errors', function (done) {
             const url = '/content/images/not-existing-image.png';
 
-            storage.getStorage().storagePath = path.join(__dirname, '../../../../test/utils/fixtures/images/');
-            const urlForStub = sinon.stub(urlUtils, 'urlFor');
+            const storagePath = path.join(__dirname, '../../../../test/utils/fixtures/images/');
+            const urlForStub = sinon.stub();
             urlForStub.withArgs('image').returns('http://myblog.com/content/images/not-existing-image.png');
             urlForStub.withArgs('home').returns('http://myblog.com/');
-            const urlGetSubdirStub = sinon.stub(urlUtils, 'getSubdir');
+            const urlGetSubdirStub = sinon.stub();
             urlGetSubdirStub.returns('');
+
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {
+                getStorage: () => ({
+                    read: () => {
+                        return Promise.reject(new errors.NotFoundError());
+                    }
+                })
+            }, storageUtils: {
+                isLocalImage: () => true,
+                getLocalFileStoragePath: imageUrl => path.join(storagePath, imageUrl.replace(/.*\//, ''))
+            }, validator: {}, urlUtils: {
+                urlFor: urlForStub,
+                getSubdir: urlGetSubdirStub
+            }, request: () => {
+                return Promise.reject({});
+            }});
 
             imageSize.getImageSizeFromStoragePath(url)
                 .catch(function (err) {
                     should.exist(err);
                     (err instanceof errors.NotFoundError).should.eql(true);
                     done();
-                });
+                }).catch(done);
         });
 
         it('[failure] returns error if \`image-size`\ module throws error', function (done) {
-            const url = '/content/images/ghost-logo.pngx';
+            const url = '/content/images/malformed.svg';
 
-            const sizeOfStub = sinon.stub();
-            sizeOfStub.throws({error: 'image-size could not find dimensions'});
-            imageSize.__set__('sizeOf', sizeOfStub);
-
-            storage.getStorage().storagePath = path.join(__dirname, '../../../../test/utils/fixtures/images/');
-            const urlForStub = sinon.stub(urlUtils, 'urlFor');
-            urlForStub.withArgs('image').returns('http://myblog.com/content/images/ghost-logo.pngx');
+            const urlForStub = sinon.stub();
+            urlForStub.withArgs('image').returns('http://myblog.com/content/images/malformed.svg');
             urlForStub.withArgs('home').returns('http://myblog.com/');
-            const urlGetSubdirStub = sinon.stub(urlUtils, 'getSubdir');
+            const urlGetSubdirStub = sinon.stub();
             urlGetSubdirStub.returns('');
+
+            const imageSize = new ImageSize({config: {
+                get: () => {}
+            }, i18n: {}, storage: {
+                getStorage: () => ({
+                    read: () => {
+                        return Promise.resolve(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg viewBox="0 0 100 100>/svg>'));
+                    }
+                })
+            }, storageUtils: {
+                isLocalImage: () => true,
+                getLocalFileStoragePath: () => ''
+            }, validator: {}, urlUtils: {
+                urlFor: urlForStub,
+                getSubdir: urlGetSubdirStub
+            }, request: () => {
+                return Promise.reject({});
+            }});
 
             imageSize.getImageSizeFromStoragePath(url)
                 .catch(function (err) {
                     should.exist(err);
-                    err.error.should.be.equal('image-size could not find dimensions');
                     done();
-                });
+                }).catch(done);
         });
     });
 });
