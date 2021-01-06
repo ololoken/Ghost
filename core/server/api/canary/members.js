@@ -192,7 +192,7 @@ module.exports = {
                 frame.options.withRelated = ['stripeSubscriptions'];
                 const member = await membersService.api.members.update(frame.data.members[0], frame.options);
 
-                const hasCompedSubscription = !!member.related('stripeSubscriptions').find(subscription => subscription.get('plan_nickname') === 'Complimentary');
+                const hasCompedSubscription = !!member.related('stripeSubscriptions').find(sub => sub.get('plan_nickname') === 'Complimentary' && sub.get('status') === 'active');
 
                 if (typeof frame.data.members[0].comped === 'boolean') {
                     if (frame.data.members[0].comped && !hasCompedSubscription) {
@@ -371,28 +371,31 @@ module.exports = {
                 };
             } else {
                 const emailRecipient = frame.user.get('email');
-                jobsService.addJob(async () => {
-                    const result = await membersService.importer.perform(job.id);
-                    const importLabelModel = result.imported ? await models.Label.findOne(importLabel) : null;
-                    const emailContent = membersService.importer.generateCompletionEmail(result, {
-                        emailRecipient,
-                        importLabel: importLabelModel ? importLabelModel.toJSON() : null
-                    });
-                    const errorCSV = membersService.importer.generateErrorCSV(result);
-                    const emailSubject = result.imported > 0 ? 'Your member import is complete' : 'Your member import was unsuccessful';
+                jobsService.addJob({
+                    job: async () => {
+                        const result = await membersService.importer.perform(job.id);
+                        const importLabelModel = result.imported ? await models.Label.findOne(importLabel) : null;
+                        const emailContent = membersService.importer.generateCompletionEmail(result, {
+                            emailRecipient,
+                            importLabel: importLabelModel ? importLabelModel.toJSON() : null
+                        });
+                        const errorCSV = membersService.importer.generateErrorCSV(result);
+                        const emailSubject = result.imported > 0 ? 'Your member import is complete' : 'Your member import was unsuccessful';
 
-                    await ghostMailer.send({
-                        to: emailRecipient,
-                        subject: emailSubject,
-                        html: emailContent,
-                        forceTextContent: true,
-                        attachments: [{
-                            filename: `${importLabel.name} - Errors.csv`,
-                            contents: errorCSV,
-                            contentType: 'text/csv',
-                            contentDisposition: 'attachment'
-                        }]
-                    });
+                        await ghostMailer.send({
+                            to: emailRecipient,
+                            subject: emailSubject,
+                            html: emailContent,
+                            forceTextContent: true,
+                            attachments: [{
+                                filename: `${importLabel.name} - Errors.csv`,
+                                contents: errorCSV,
+                                contentType: 'text/csv',
+                                contentDisposition: 'attachment'
+                            }]
+                        });
+                    },
+                    offloaded: false
                 });
 
                 return {};
