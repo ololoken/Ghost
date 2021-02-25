@@ -63,23 +63,93 @@ function dropColumn(tableName, column, transaction) {
     });
 }
 
-function addUnique(tableName, column, transaction) {
-    return (transaction || db.knex).schema.table(tableName, function (table) {
-        table.unique(column);
-    });
+/**
+ * Checks if unique index exists in a table over the given columns.
+ *
+ * @param {string} tableName - name of the table to add unique constraint to
+ * @param {string|[string]} columns - column(s) to form unique constraint with
+ * @param {Object} transaction - connection object containing knex reference
+ * @param {Object} transaction.knex - knex instance
+ */
+async function hasUnique(tableName, columns, transaction) {
+    const knex = (transaction || db.knex);
+    const client = knex.client.config.client;
+    const columnNames = _.isArray(columns) ? columns.join('_') : columns;
+    const constraintName = `${tableName}_${columnNames}_unique`;
+
+    if (client === 'mysql') {
+        const dbName = knex.client.config.connection.database;
+        const [rawConstraints] = await knex.raw(`
+                SELECT CONSTRAINT_NAME
+                FROM information_schema.TABLE_CONSTRAINTS
+                WHERE 1=1
+                AND CONSTRAINT_SCHEMA=:dbName
+                AND TABLE_NAME=:tableName
+                AND CONSTRAINT_TYPE='UNIQUE'`, {dbName, tableName});
+        const dbConstraints = rawConstraints.map(c => c.CONSTRAINT_NAME);
+
+        if (dbConstraints.includes(constraintName)) {
+            return true;
+        }
+    } else {
+        const rawConstraints = await knex.raw(`PRAGMA index_list('${tableName}');`);
+        const dbConstraints = rawConstraints.map(c => c.name);
+
+        if (dbConstraints.includes(constraintName)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
-function dropUnique(tableName, column, transaction) {
-    return (transaction || db.knex).schema.table(tableName, function (table) {
-        table.dropUnique(column);
-    });
+/**
+ * Adds an unique index to a table over the given columns.
+ *
+ * @param {string} tableName - name of the table to add unique constraint to
+ * @param {string|[string]} columns - column(s) to form unique constraint with
+ * @param {Object} transaction - connection object containing knex reference
+ * @param {Object} transaction.knex - knex instance
+ */
+async function addUnique(tableName, columns, transaction) {
+    const hasUniqueConstraint = await hasUnique(tableName, columns, transaction);
+
+    if (!hasUniqueConstraint) {
+        logging.info(`Adding unique constraint for: ${columns} in table ${tableName}`);
+        return (transaction || db.knex).schema.table(tableName, function (table) {
+            table.unique(columns);
+        });
+    } else {
+        logging.warn(`Constraint for: ${columns} already exists for table: ${tableName}`);
+    }
+}
+
+/**
+ * Drops a unique key constraint from a table.
+ *
+ * @param {string} tableName - name of the table to drop unique constraint from
+ * @param {string|[string]} columns - column(s) unique constraint was formed
+ * @param {Object} transaction - connection object containing knex reference
+ * @param {Object} transaction.knex - knex instance
+ */
+async function dropUnique(tableName, columns, transaction) {
+    const hasUniqueConstraint = await hasUnique(tableName, columns, transaction);
+
+    if (hasUniqueConstraint) {
+        logging.info(`Dropping unique constraint for: ${columns} in table: ${tableName}`);
+        return (transaction || db.knex).schema.table(tableName, function (table) {
+            table.dropUnique(columns);
+        });
+    } else {
+        logging.warn(`Constraint for: ${columns} does not exist for table: ${tableName}`);
+    }
 }
 
 /**
  * https://github.com/tgriesser/knex/issues/1303
  * createTableIfNotExists can throw error if indexes are already in place
  */
-function createTable(table, transaction) {
+function createTable(table, transaction, tableSpec = schema[table]) {
     return (transaction || db.knex).schema.hasTable(table)
         .then(function (exists) {
             if (exists) {
@@ -87,21 +157,16 @@ function createTable(table, transaction) {
             }
 
             return (transaction || db.knex).schema.createTable(table, function (t) {
-                let tableIndexes = [];
+                Object.keys(tableSpec)
+                    .filter(column => !(column.startsWith('@@')))
+                    .forEach(column => addTableColumn(table, t, column, tableSpec[column]));
 
-                const columnKeys = _.keys(schema[table]);
-                _.each(columnKeys, function (column) {
-                    if (column === '@@INDEXES@@') {
-                        tableIndexes = schema[table]['@@INDEXES@@'];
-                        return;
-                    }
-
-                    return addTableColumn(table, t, column);
-                });
-
-                _.each(tableIndexes, function (index) {
-                    t.index(index);
-                });
+                if (tableSpec['@@INDEXES@@']) {
+                    tableSpec['@@INDEXES@@'].forEach(index => t.index(index));
+                }
+                if (tableSpec['@@UNIQUE_CONSTRAINTS@@']) {
+                    tableSpec['@@UNIQUE_CONSTRAINTS@@'].forEach(unique => t.unique(unique));
+                }
             });
         });
 }
@@ -148,8 +213,6 @@ function checkTables(transaction) {
     }
 }
 
-const createLog = type => msg => logging[type](msg);
-
 function createColumnMigration(...migrations) {
     async function runColumnMigration(conn, migration) {
         const {
@@ -164,11 +227,10 @@ function createColumnMigration(...migrations) {
         const hasColumn = await conn.schema.hasColumn(table, column);
         const isInCorrectState = dbIsInCorrectState(hasColumn);
 
-        const log = createLog(isInCorrectState ? 'warn' : 'info');
-
-        log(`${operationVerb} ${table}.${column} column`);
-
-        if (!isInCorrectState) {
+        if (isInCorrectState) {
+            logging.warn(`${operationVerb} ${table}.${column} column - skipping as table is correct`);
+        } else {
+            logging.info(`${operationVerb} ${table}.${column} column`);
             await operation(table, column, conn, columnDefinition);
         }
     }

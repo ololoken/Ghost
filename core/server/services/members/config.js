@@ -1,5 +1,6 @@
 const {URL} = require('url');
 const crypto = require('crypto');
+const createKeypair = require('keypair');
 const path = require('path');
 
 const COMPLIMENTARY_PLAN = {
@@ -230,20 +231,29 @@ class MembersConfigProvider {
             this._urlUtils.urlFor('admin', true)
         );
 
+        let privateKey = this._settingsCache.get('members_private_key');
+        let publicKey = this._settingsCache.get('members_public_key');
+
+        if (!privateKey || !publicKey) {
+            this._logging.warn('Could not find members_private_key, using dynamically generated keypair');
+            const keypair = createKeypair({bits: 1024});
+            privateKey = keypair.private;
+            publicKey = keypair.public;
+        }
+
         return {
             issuer: membersApiUrl,
-            publicKey: this._settingsCache.get('members_public_key'),
-            privateKey: this._settingsCache.get('members_private_key')
+            publicKey,
+            privateKey
         };
     }
 
-    getSigninURL(token, type, requestSrc) {
+    getSigninURL(token, type) {
         const siteUrl = this._urlUtils.getSiteUrl();
         const signinURL = new URL(siteUrl);
         signinURL.pathname = path.join(signinURL.pathname, '/members/');
-        const actionParam = requestSrc === 'portal' ? 'portal-action' : 'action';
         signinURL.searchParams.set('token', token);
-        signinURL.searchParams.set(actionParam, type);
+        signinURL.searchParams.set('action', type);
         return signinURL.href;
     }
 }

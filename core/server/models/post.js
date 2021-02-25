@@ -6,7 +6,7 @@ const Promise = require('bluebird');
 const {sequence} = require('@tryghost/promise');
 const {i18n} = require('../lib/common');
 const errors = require('@tryghost/errors');
-const htmlToText = require('html-to-text');
+const htmlToPlaintext = require('../../shared/html-to-plaintext');
 const ghostBookshelf = require('./base');
 const config = require('../../shared/config');
 const settingsCache = require('../services/settings/cache');
@@ -45,7 +45,7 @@ Post = ghostBookshelf.Model.extend({
     defaults: function defaults() {
         let visibility = 'public';
 
-        if (settingsCache.get('labs') && (settingsCache.get('labs').members === true) && settingsCache.get('default_content_visibility')) {
+        if (settingsCache.get('default_content_visibility')) {
             visibility = settingsCache.get('default_content_visibility');
         }
 
@@ -481,14 +481,7 @@ Post = ghostBookshelf.Model.extend({
             if (this.get('html') === null) {
                 plaintext = null;
             } else {
-                plaintext = htmlToText.fromString(this.get('html'), {
-                    wordwrap: 80,
-                    ignoreImage: true,
-                    hideLinkHrefIfSameAsText: true,
-                    preserveNewlines: true,
-                    returnDomByDefault: true,
-                    uppercaseHeadings: false
-                });
+                plaintext = htmlToPlaintext(this.get('html'));
             }
 
             // CASE: html is e.g. <p></p>

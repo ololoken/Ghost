@@ -6,16 +6,16 @@ const {events} = require('../../../core/server/lib/common');
 
 const bootstrapSocket = require('@tryghost/bootstrap-socket');
 
-describe('GhostServer', function () {
-    describe('announceServerReadiness', function () {
-        let GhostServer;
+describe('Notify', function () {
+    describe('notifyServerStarted', function () {
+        let notify;
         let socketStub;
         let eventSpy;
 
         beforeEach(function () {
             // Have to re-require each time to clear the internal flag
-            delete require.cache[require.resolve('../../../core/server/ghost-server')];
-            GhostServer = require('../../../core/server/ghost-server');
+            delete require.cache[require.resolve('../../../core/server/notify')];
+            notify = require('../../../core/server/notify');
 
             // process.send isn't set for tests, we can safely override;
             process.send = sinon.stub();
@@ -35,11 +35,11 @@ describe('GhostServer', function () {
         });
 
         it('it resolves a promise', function () {
-            GhostServer.announceServerReadiness().should.be.fulfilled();
+            notify.notifyServerStarted().should.be.fulfilled();
         });
 
         it('it communicates with IPC correctly on success', function () {
-            GhostServer.announceServerReadiness();
+            notify.notifyServerStarted();
 
             process.send.calledOnce.should.be.true();
 
@@ -50,7 +50,7 @@ describe('GhostServer', function () {
         });
 
         it('communicates with IPC correctly on failure', function () {
-            GhostServer.announceServerReadiness(new Error('something went wrong'));
+            notify.notifyServerStarted(new Error('something went wrong'));
 
             process.send.calledOnce.should.be.true();
 
@@ -64,7 +64,7 @@ describe('GhostServer', function () {
         it('communicates via bootstrap socket correctly on success', function () {
             configUtils.set('bootstrap-socket', 'testing');
 
-            GhostServer.announceServerReadiness();
+            notify.notifyServerStarted();
 
             socketStub.calledOnce.should.be.true();
             socketStub.firstCall.args[0].should.eql('testing');
@@ -79,7 +79,7 @@ describe('GhostServer', function () {
         it('communicates via bootstrap socket correctly on failure', function () {
             configUtils.set('bootstrap-socket', 'testing');
 
-            GhostServer.announceServerReadiness(new Error('something went wrong'));
+            notify.notifyServerStarted(new Error('something went wrong'));
 
             socketStub.calledOnce.should.be.true();
             socketStub.firstCall.args[0].should.eql('testing');
@@ -95,25 +95,12 @@ describe('GhostServer', function () {
         it('can be called multiple times, but only communicates once', function () {
             configUtils.set('bootstrap-socket', 'testing');
 
-            GhostServer.announceServerReadiness();
-            GhostServer.announceServerReadiness(new Error('something went wrong'));
-            GhostServer.announceServerReadiness();
+            notify.notifyServerStarted();
+            notify.notifyServerStarted(new Error('something went wrong'));
+            notify.notifyServerStarted();
 
             process.send.calledOnce.should.be.true();
             socketStub.calledOnce.should.be.true();
-        });
-
-        it('sends server.start event correctly on success', function () {
-            GhostServer.announceServerReadiness();
-
-            eventSpy.calledOnce.should.be.true();
-            eventSpy.firstCall.args[0].should.eql('server.start');
-        });
-
-        it('does not send server.start event on failure', function () {
-            GhostServer.announceServerReadiness(new Error('something went wrong'));
-
-            eventSpy.calledOnce.should.be.false();
         });
     });
 });

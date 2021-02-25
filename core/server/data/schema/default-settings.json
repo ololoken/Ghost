@@ -394,22 +394,24 @@
             "type": "string"
         }
     },
-    "labs": {
-        "labs": {
-            "defaultValue": "{}",
-            "type": "object"
-        }
-    },
     "slack": {
-        "slack": {
-            "defaultValue": "[{\"url\":\"\", \"username\":\"Ghost\"}]",
-            "type": "array"
+        "slack_url": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "slack_username": {
+            "defaultValue": "Ghost",
+            "type": "string"
         }
     },
     "unsplash": {
         "unsplash": {
-            "defaultValue": "{\"isActive\": true}",
-            "type": "object"
+            "defaultValue": "true",
+            "validations": {
+                "isEmpty": false,
+                "isIn": [["true", "false"]]
+            },
+            "type": "boolean"
         }
     },
     "views": {

@@ -6,18 +6,20 @@ const testUtils = require('../../utils');
 const configUtils = require('../../utils/configUtils');
 const models = require('../../../core/server/models');
 const {events} = require('../../../core/server/lib/common');
-const themes = require('../../../core/frontend/services/themes');
 const UrlService = rewire('../../../core/frontend/services/url/UrlService');
 
+/**
+ * @NOTE
+ *
+ * If this test fails for you, you are probably modifying supported theme engines
+ * and thus should check if the there is a configuration added for the new API version
+ *
+ */
 describe('Integration: services/url/UrlService', function () {
     let urlService;
 
     before(function () {
         models.init();
-
-        sinon.stub(themes, 'getActive').returns({
-            engine: () => 'v2'
-        });
     });
 
     before(testUtils.teardownDb);
@@ -114,7 +116,8 @@ describe('Integration: services/url/UrlService', function () {
             events.emit('router.created', router3);
             events.emit('router.created', router4);
 
-            events.emit('db.ready');
+            // We can't use our url service utils here, because this is a local copy of the urlService, not the singletone
+            urlService.init();
 
             let timeout;
             (function retry() {
@@ -318,7 +321,8 @@ describe('Integration: services/url/UrlService', function () {
             events.emit('router.created', router4);
             events.emit('router.created', router5);
 
-            events.emit('db.ready');
+            // We can't use our url service utils here, because this is a local copy of the urlService, not the singletone
+            urlService.init();
 
             let timeout;
             (function retry() {
@@ -515,7 +519,8 @@ describe('Integration: services/url/UrlService', function () {
             events.emit('router.created', router4);
             events.emit('router.created', router5);
 
-            events.emit('db.ready');
+            // We can't use our url service utils here, because this is a local copy of the urlService, not the singletone
+            urlService.init();
 
             let timeout;
             (function retry() {
