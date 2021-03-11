@@ -4,6 +4,7 @@ const validator = require('validator');
 const ObjectId = require('bson-objectid');
 const ghostBookshelf = require('./base');
 const baseUtils = require('./base/utils');
+const limitService = require('../services/limits');
 const {i18n} = require('../lib/common');
 const errors = require('@tryghost/errors');
 const security = require('@tryghost/security');
@@ -11,6 +12,7 @@ const {gravatar} = require('../lib/image');
 const {pipeline} = require('@tryghost/promise');
 const validation = require('../data/validation');
 const permissions = require('../services/permissions');
+const urlUtils = require('../../shared/url-utils');
 const activeStates = ['active', 'warn-1', 'warn-2', 'warn-3', 'warn-4'];
 
 /**
@@ -112,6 +114,26 @@ User = ghostBookshelf.Model.extend({
         const self = this;
         const tasks = [];
         let passwordValidation = {};
+
+        const urlTransformMap = {
+            profile_image: 'toTransformReady',
+            cover_image: 'toTransformReady'
+        };
+
+        Object.entries(urlTransformMap).forEach(([urlAttr, transform]) => {
+            let method = transform;
+            let methodOptions = {};
+
+            if (typeof transform === 'object') {
+                method = transform.method;
+                methodOptions = transform.options || {};
+            }
+
+            if (this.hasChanged(urlAttr) && this.get(urlAttr)) {
+                const transformedValue = urlUtils[method](this.get(urlAttr), methodOptions);
+                this.set(urlAttr, transformedValue);
+            }
+        });
 
         ghostBookshelf.Model.prototype.onSaving.apply(this, arguments);
 
@@ -655,7 +677,7 @@ User = ghostBookshelf.Model.extend({
         });
     },
 
-    permissible: function permissible(userModelOrId, action, context, unsafeAttrs, loadedPermissions, hasUserPermission, hasApiKeyPermission) {
+    permissible: async function permissible(userModelOrId, action, context, unsafeAttrs, loadedPermissions, hasUserPermission, hasApiKeyPermission) {
         const self = this;
         const userModel = userModelOrId;
         let origArgs;
@@ -685,6 +707,11 @@ User = ghostBookshelf.Model.extend({
 
                 return self.permissible.apply(self, newArgs);
             });
+        }
+
+        // If we have a staff user limit & the user is being unsuspended
+        if (limitService.isLimited('staff') && action === 'edit' && unsafeAttrs.status && unsafeAttrs.status === 'active' && userModel.get('status') === 'inactive') {
+            await limitService.errorIfWouldGoOverLimit('staff');
         }
 
         if (action === 'edit') {
@@ -741,6 +768,13 @@ User = ghostBookshelf.Model.extend({
                 }));
             }
 
+            if (limitService.isLimited('staff') && userModel.hasRole('Contributor') && role.name !== 'Contributor') {
+                // CASE: if your site is limited to a certain number of staff users
+                // Trying to change the role of a contributor, who doesn't count towards the limit, to any other role requires a limit check
+                // To check if it's OK to add one more staff user
+                await limitService.errorIfWouldGoOverLimit('staff');
+            }
+
             return User.getOwnerUser()
                 .then((owner) => {
                     // CASE: owner can assign role to any user
@@ -765,6 +799,7 @@ User = ghostBookshelf.Model.extend({
                         // CASE: you are trying to change a role, but you are not owner
                         // @NOTE: your role is not the same than the role you try to change (!)
                         // e.g. admin can assign admin role to a user, but not owner
+
                         return permissions.canThis(context).assign.role(role)
                             .then(() => {
                                 if (hasUserPermission && hasApiKeyPermission) {

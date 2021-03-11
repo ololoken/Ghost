@@ -64,63 +64,29 @@ function dropColumn(tableName, column, transaction) {
 }
 
 /**
- * Checks if unique index exists in a table over the given columns.
- *
- * @param {string} tableName - name of the table to add unique constraint to
- * @param {string|[string]} columns - column(s) to form unique constraint with
- * @param {Object} transaction - connection object containing knex reference
- * @param {Object} transaction.knex - knex instance
- */
-async function hasUnique(tableName, columns, transaction) {
-    const knex = (transaction || db.knex);
-    const client = knex.client.config.client;
-    const columnNames = _.isArray(columns) ? columns.join('_') : columns;
-    const constraintName = `${tableName}_${columnNames}_unique`;
-
-    if (client === 'mysql') {
-        const dbName = knex.client.config.connection.database;
-        const [rawConstraints] = await knex.raw(`
-                SELECT CONSTRAINT_NAME
-                FROM information_schema.TABLE_CONSTRAINTS
-                WHERE 1=1
-                AND CONSTRAINT_SCHEMA=:dbName
-                AND TABLE_NAME=:tableName
-                AND CONSTRAINT_TYPE='UNIQUE'`, {dbName, tableName});
-        const dbConstraints = rawConstraints.map(c => c.CONSTRAINT_NAME);
-
-        if (dbConstraints.includes(constraintName)) {
-            return true;
-        }
-    } else {
-        const rawConstraints = await knex.raw(`PRAGMA index_list('${tableName}');`);
-        const dbConstraints = rawConstraints.map(c => c.name);
-
-        if (dbConstraints.includes(constraintName)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
  * Adds an unique index to a table over the given columns.
  *
  * @param {string} tableName - name of the table to add unique constraint to
  * @param {string|[string]} columns - column(s) to form unique constraint with
- * @param {Object} transaction - connection object containing knex reference
- * @param {Object} transaction.knex - knex instance
+ * @param {import('knex')} transaction - connection object containing knex reference
  */
 async function addUnique(tableName, columns, transaction) {
-    const hasUniqueConstraint = await hasUnique(tableName, columns, transaction);
-
-    if (!hasUniqueConstraint) {
+    try {
         logging.info(`Adding unique constraint for: ${columns} in table ${tableName}`);
-        return (transaction || db.knex).schema.table(tableName, function (table) {
+
+        return await (transaction || db.knex).schema.table(tableName, function (table) {
             table.unique(columns);
         });
-    } else {
-        logging.warn(`Constraint for: ${columns} already exists for table: ${tableName}`);
+    } catch (err) {
+        if (err.code === 'SQLITE_ERROR') {
+            logging.warn(`Constraint for: ${columns} already exists for table: ${tableName}`);
+            return;
+        }
+        if (err.code === 'ER_DUP_KEYNAME') {
+            logging.warn(`Constraint for: ${columns} already exists for table: ${tableName}`);
+            return;
+        }
+        throw err;
     }
 }
 
@@ -129,19 +95,203 @@ async function addUnique(tableName, columns, transaction) {
  *
  * @param {string} tableName - name of the table to drop unique constraint from
  * @param {string|[string]} columns - column(s) unique constraint was formed
- * @param {Object} transaction - connection object containing knex reference
- * @param {Object} transaction.knex - knex instance
+ * @param {import('knex')} transaction - connection object containing knex reference
  */
 async function dropUnique(tableName, columns, transaction) {
-    const hasUniqueConstraint = await hasUnique(tableName, columns, transaction);
-
-    if (hasUniqueConstraint) {
+    try {
         logging.info(`Dropping unique constraint for: ${columns} in table: ${tableName}`);
-        return (transaction || db.knex).schema.table(tableName, function (table) {
+
+        return await (transaction || db.knex).schema.table(tableName, function (table) {
             table.dropUnique(columns);
         });
-    } else {
-        logging.warn(`Constraint for: ${columns} does not exist for table: ${tableName}`);
+    } catch (err) {
+        if (err.code === 'SQLITE_ERROR') {
+            logging.warn(`Constraint for: ${columns} does not exist for table: ${tableName}`);
+            return;
+        }
+        if (err.code === 'ER_CANT_DROP_FIELD_OR_KEY') {
+            logging.warn(`Constraint for: ${columns} does not exist for table: ${tableName}`);
+            return;
+        }
+        throw err;
+    }
+}
+
+/**
+ * Checks if a foreign key exists in a table over the given columns.
+ *
+ * @param {Object} configuration - contains all configuration for this function
+ * @param {string} configuration.fromTableName - name of the table to add the foreign key to
+ * @param {string} configuration.fromColumn - column of the table to add the foreign key to
+ * @param {string} configuration.toTableName - name of the table to point the foreign key to
+ * @param {string} configuration.toColumn - column of the table to point the foreign key to
+ * @param {import('knex')} configuration.transaction - connection object containing knex reference
+ */
+async function hasForeignSQLite({fromTable, fromColumn, toTable, toColumn, transaction}) {
+    const knex = (transaction || db.knex);
+    const client = knex.client.config.client;
+
+    if (client !== 'sqlite3') {
+        throw new Error('Must use hasForeignSQLite3 on an SQLite3 database');
+    }
+
+    const foreignKeys = await knex.raw(`PRAGMA foreign_key_list('${fromTable}');`);
+
+    const hasForeignKey = foreignKeys.some(foreignKey => foreignKey.table === toTable && foreignKey.from === fromColumn && foreignKey.to === toColumn);
+
+    return hasForeignKey;
+}
+
+/**
+ * Adds a foreign key to a table.
+ *
+ * @param {Object} configuration - contains all configuration for this function
+ * @param {string} configuration.fromTableName - name of the table to add the foreign key to
+ * @param {string} configuration.fromColumn - column of the table to add the foreign key to
+ * @param {string} configuration.toTableName - name of the table to point the foreign key to
+ * @param {string} configuration.toColumn - column of the table to point the foreign key to
+ * @param {Boolean} configuration.cascadeDelete - adds the "on delete cascade" option if true
+ * @param {import('knex')} configuration.transaction - connection object containing knex reference
+ */
+async function addForeign({fromTable, fromColumn, toTable, toColumn, cascadeDelete = false, transaction}) {
+    const isSQLite = db.knex.client.config.client === 'sqlite3';
+    if (isSQLite) {
+        const foreignKeyExists = await hasForeignSQLite({fromTable, fromColumn, toTable, toColumn, transaction});
+        if (foreignKeyExists) {
+            logging.warn(`Skipped adding foreign key from ${fromTable}.${fromColumn} to ${toTable}.${toColumn} - foreign key already exists`);
+            return;
+        }
+    }
+    try {
+        logging.info(`Adding foreign key from ${fromTable}.${fromColumn} to ${toTable}.${toColumn}`);
+
+        //disable and re-enable foreign key checks on sqlite because of https://github.com/knex/knex/issues/4155
+        let foreignKeysEnabled;
+        if (isSQLite) {
+            foreignKeysEnabled = await db.knex.raw('PRAGMA foreign_keys;');
+            if (foreignKeysEnabled[0].foreign_keys) {
+                await db.knex.raw('PRAGMA foreign_keys = OFF;');
+            }
+        }
+
+        await (transaction || db.knex).schema.table(fromTable, function (table) {
+            if (cascadeDelete) {
+                table.foreign(fromColumn).references(`${toTable}.${toColumn}`).onDelete('CASCADE');
+            } else {
+                table.foreign(fromColumn).references(`${toTable}.${toColumn}`);
+            }
+        });
+
+        if (isSQLite) {
+            if (foreignKeysEnabled[0].foreign_keys) {
+                await db.knex.raw('PRAGMA foreign_keys = ON;');
+            }
+        }
+    } catch (err) {
+        if (err.code === 'ER_DUP_KEY') {
+            logging.warn(`Skipped adding foreign key from ${fromTable}.${fromColumn} to ${toTable}.${toColumn} - foreign key already exists`);
+            return;
+        }
+        throw err;
+    }
+}
+
+/**
+ * Drops a foreign key from a table.
+ *
+ * @param {Object} configuration - contains all configuration for this function
+ * @param {string} configuration.fromTableName - name of the table to add the foreign key to
+ * @param {string} configuration.fromColumn - column of the table to add the foreign key to
+ * @param {string} configuration.toTableName - name of the table to point the foreign key to
+ * @param {string} configuration.toColumn - column of the table to point the foreign key to
+ * @param {import('knex')} configuration.transaction - connection object containing knex reference
+ */
+async function dropForeign({fromTable, fromColumn, toTable, toColumn, transaction}) {
+    const isSQLite = db.knex.client.config.client === 'sqlite3';
+    if (isSQLite) {
+        const foreignKeyExists = await hasForeignSQLite({fromTable, fromColumn, toTable, toColumn, transaction});
+        if (!foreignKeyExists) {
+            logging.warn(`Skipped dropping foreign key from ${fromTable}.${fromColumn} to ${toTable}.${toColumn} - foreign key does not exist`);
+            return;
+        }
+    }
+    try {
+        logging.info(`Dropping foreign key from ${fromTable}.${fromColumn} to ${toTable}.${toColumn}`);
+
+        //disable and re-enable foreign key checks on sqlite because of https://github.com/knex/knex/issues/4155
+        let foreignKeysEnabled;
+        if (isSQLite) {
+            foreignKeysEnabled = await db.knex.raw('PRAGMA foreign_keys;');
+            if (foreignKeysEnabled[0].foreign_keys) {
+                await db.knex.raw('PRAGMA foreign_keys = OFF;');
+            }
+        }
+
+        await (transaction || db.knex).schema.table(fromTable, function (table) {
+            table.dropForeign(fromColumn);
+        });
+
+        if (isSQLite) {
+            if (foreignKeysEnabled[0].foreign_keys) {
+                await db.knex.raw('PRAGMA foreign_keys = ON;');
+            }
+        }
+    } catch (err) {
+        if (err.code === 'ER_CANT_DROP_FIELD_OR_KEY') {
+            logging.warn(`Skipped dropping foreign key from ${fromTable}.${fromColumn} to ${toTable}.${toColumn} - foreign key does not exist`);
+            return;
+        }
+        throw err;
+    }
+}
+
+/**
+ * Checks if primary key index exists in a table over the given columns.
+ *
+ * @param {string} tableName - name of the table to check primary key constraint on
+ * @param {import('knex')} transaction - connnection object containing knex reference
+ */
+async function hasPrimaryKeySQLite(tableName, transaction) {
+    const knex = (transaction || db.knex);
+    const client = knex.client.config.client;
+
+    if (client !== 'sqlite3') {
+        throw new Error('Must use hasPrimaryKeySQLite on an SQLite3 database');
+    }
+
+    const rawConstraints = await knex.raw(`PRAGMA index_list('${tableName}');`);
+    const tablePrimaryKey = rawConstraints.find(c => c.origin === 'pk');
+
+    return tablePrimaryKey;
+}
+
+/**
+ * Adds an primary key index to a table over the given columns.
+ *
+ * @param {string} tableName - name of the table to add primaykey  constraint to
+ * @param {string|[string]} columns - column(s) to form primary key constraint with
+ * @param {import('knex')} transaction - connnection object containing knex reference
+ */
+async function addPrimaryKey(tableName, columns, transaction) {
+    const isSQLite = db.knex.client.config.client === 'sqlite3';
+    if (isSQLite) {
+        const primaryKeyExists = await hasPrimaryKeySQLite(tableName, transaction);
+        if (primaryKeyExists) {
+            logging.warn(`Primary key constraint for: ${columns} already exists for table: ${tableName}`);
+            return;
+        }
+    }
+    try {
+        logging.info(`Adding primary key constraint for: ${columns} in table ${tableName}`);
+        return await (transaction || db.knex).schema.table(tableName, function (table) {
+            table.primary(columns);
+        });
+    } catch (err) {
+        if (err.code === 'ER_MULTIPLE_PRI_KEY') {
+            logging.warn(`Primary key constraint for: ${columns} already exists for table: ${tableName}`);
+            return;
+        }
+        throw err;
     }
 }
 
@@ -250,6 +400,9 @@ module.exports = {
     getIndexes: getIndexes,
     addUnique: addUnique,
     dropUnique: dropUnique,
+    addPrimaryKey: addPrimaryKey,
+    addForeign: addForeign,
+    dropForeign: dropForeign,
     addColumn: addColumn,
     dropColumn: dropColumn,
     getColumns: getColumns,

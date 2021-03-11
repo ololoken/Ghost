@@ -1552,4 +1552,110 @@ describe('{{ghost_head}} helper', function () {
             }).catch(done);
         });
     });
+
+    describe('accent_color', function () {
+        it('includes style tag when set', function (done) {
+            const renderObject = {
+                post: posts[1]
+            };
+
+            const templateOptions = {
+                site: {
+                    accent_color: '#123456'
+                }
+            };
+
+            helpers.ghost_head(testUtils.createHbsResponse({
+                templateOptions,
+                renderObject: renderObject,
+                locals: {
+                    relativeUrl: '/post/',
+                    context: ['post'],
+                    safeVersion: '0.3'
+                }
+            })).then(function (rendered) {
+                should.exist(rendered);
+                rendered.string.should.containEql('<style>:root {--ghost-accent-color: #123456;}</style>');
+                done();
+            }).catch(done);
+        });
+
+        it('does not include style tag when not set', function (done) {
+            const renderObject = {
+                post: posts[1]
+            };
+
+            const templateOptions = {
+                site: {
+                    accent_color: null
+                }
+            };
+
+            helpers.ghost_head(testUtils.createHbsResponse({
+                templateOptions,
+                renderObject: renderObject,
+                locals: {
+                    relativeUrl: '/post/',
+                    context: ['post'],
+                    safeVersion: '0.3'
+                }
+            })).then(function (rendered) {
+                should.exist(rendered);
+                rendered.string.should.not.containEql('--ghost-accent-color');
+                done();
+            }).catch(done);
+        });
+
+        it('attaches style tag to existing script/style tag', function (done) {
+            const renderObject = {
+                post: posts[1]
+            };
+
+            const templateOptions = {
+                site: {
+                    accent_color: '#123456'
+                }
+            };
+
+            helpers.ghost_head(testUtils.createHbsResponse({
+                templateOptions,
+                renderObject: renderObject,
+                locals: {
+                    relativeUrl: '/post/',
+                    context: ['post'],
+                    safeVersion: '0.3'
+                }
+            })).then(function (rendered) {
+                should.exist(rendered);
+                rendered.string.should.match(/[^\s]<style>:root/);
+                done();
+            }).catch(done);
+        });
+
+        it('includes style tag on templates with no context', function (done) {
+            const renderObject = {
+                post: posts[1]
+            };
+
+            const templateOptions = {
+                site: {
+                    accent_color: '#123456'
+                }
+            };
+
+            helpers.ghost_head(testUtils.createHbsResponse({
+                templateOptions,
+                renderObject: renderObject,
+                locals: {
+                    relativeUrl: '/post/amp/',
+                    context: null,
+                    safeVersion: '0.3'
+                }
+            })).then(function (rendered) {
+                should.exist(rendered);
+                rendered.string.should.containEql('<style>:root {--ghost-accent-color: #123456;}</style>');
+                done();
+            }).catch(done);
+        });
+    });
 });

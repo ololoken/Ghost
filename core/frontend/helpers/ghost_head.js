@@ -167,10 +167,6 @@ module.exports = function ghost_head(options) { // eslint-disable-line camelcase
                             '\n    </script>\n');
                     }
                 }
-
-                if (!_.includes(context, 'amp')) {
-                    head.push(getMembersHelper(options.data));
-                }
             }
 
             head.push('<meta name="generator" content="Ghost ' +
@@ -182,6 +178,8 @@ module.exports = function ghost_head(options) { // eslint-disable-line camelcase
 
             // no code injection for amp context!!!
             if (!_.includes(context, 'amp')) {
+                head.push(getMembersHelper(options.data));
+
                 if (!_.isEmpty(globalCodeinjection)) {
                     head.push(globalCodeinjection);
                 }
@@ -194,6 +192,19 @@ module.exports = function ghost_head(options) { // eslint-disable-line camelcase
                     head.push(tagCodeInjection);
                 }
             }
+
+            if (options.data.site.accent_color) {
+                const accentColor = escapeExpression(options.data.site.accent_color);
+                const styleTag = `<style>:root {--ghost-accent-color: ${accentColor};}</style>`;
+                const existingScriptIndex = _.findLastIndex(head, str => str.match(/<\/(style|script)>/));
+
+                if (existingScriptIndex !== -1) {
+                    head[existingScriptIndex] = head[existingScriptIndex] + styleTag;
+                } else {
+                    head.push(styleTag);
+                }
+            }
+
             debug('end');
             return new SafeString(head.join('\n    ').trim());
         })

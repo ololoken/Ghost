@@ -86,6 +86,10 @@ module.exports = {
         if (frame.options.key === 'default_locale') {
             frame.options.key = 'lang';
         }
+
+        if (frame.options.key === 'locale') {
+            frame.options.key = 'lang';
+        }
     },
 
     edit(apiConfig, frame) {
@@ -151,9 +155,11 @@ module.exports = {
                 setting.key = 'lang';
             }
 
-            if (['cover_image', 'icon', 'logo', 'portal_button_icon'].includes(setting.key)) {
-                setting = url.forSetting(setting);
+            if (setting.key === 'locale') {
+                setting.key = 'lang';
             }
+
+            setting = url.forSetting(setting);
         });
 
         // Ignore all deprecated settings
