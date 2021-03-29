@@ -4,27 +4,22 @@ const urlUtils = require('../../shared/url-utils');
 const Snippet = ghostBookshelf.Model.extend({
     tableName: 'snippets',
 
-    onSaving: function onSaving() {
-        const urlTransformMap = {
-            mobiledoc: 'mobiledocToTransformReady'
-        };
+    formatOnWrite(attrs) {
+        if (attrs.mobiledoc) {
+            attrs.mobiledoc = urlUtils.mobiledocToTransformReady(attrs.mobiledoc);
+        }
 
-        Object.entries(urlTransformMap).forEach(([attr, transform]) => {
-            let method = transform;
-            let methodOptions = {};
+        return attrs;
+    },
 
-            if (typeof transform === 'object') {
-                method = transform.method;
-                methodOptions = transform.options || {};
-            }
+    parse() {
+        const attrs = ghostBookshelf.Model.prototype.parse.apply(this, arguments);
 
-            if (this.hasChanged(attr) && this.get(attr)) {
-                const transformedValue = urlUtils[method](this.get(attr), methodOptions);
-                this.set(attr, transformedValue);
-            }
-        });
+        if (attrs.mobiledoc) {
+            attrs.mobiledoc = urlUtils.transformReadyToAbsolute(attrs.mobiledoc);
+        }
 
-        ghostBookshelf.Model.prototype.onSaving.apply(this, arguments);
+        return attrs;
     }
 });
 

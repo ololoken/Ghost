@@ -21,96 +21,7 @@ const importOptions = {
 
 const knex = db.knex;
 
-const exportedLatestBody = () => {
-    return _.clone({
-        db: [{
-            meta: {
-                exported_on: 1504269105806,
-                version: '2.0.0'
-            },
-            data: {
-                app_fields: [],
-                app_settings: [],
-                apps: [],
-                brute: [],
-                invites: [],
-                migrations: [],
-                permissions: [],
-                permissions_roles: [],
-                permissions_users: [],
-                posts: [],
-                posts_tags: [],
-                posts_authors: [],
-                roles: [],
-                roles_users: [],
-                settings: [],
-                subscribers: [],
-                tags: [],
-                users: []
-            }
-        }]
-    });
-};
-
-const exportedPreviousBody = () => {
-    return _.clone({
-        db: [{
-            meta: {
-                exported_on: 1504269105806,
-                version: '1.20.0'
-            },
-            data: {
-                app_fields: [],
-                app_settings: [],
-                apps: [],
-                brute: [],
-                invites: [],
-                migrations: [],
-                permissions: [],
-                permissions_roles: [],
-                permissions_users: [],
-                posts: [],
-                posts_tags: [],
-                posts_authors: [],
-                roles: [],
-                roles_users: [],
-                settings: [],
-                subscribers: [],
-                tags: [],
-                users: []
-            }
-        }]
-    });
-};
-
-const exportedLegacyBody = () => {
-    return _.clone({
-        db: [{
-            meta: {
-                exported_on: 1504269105806,
-                version: '300'
-            },
-            data: {
-                app_fields: [],
-                app_settings: [],
-                apps: [],
-                brute: [],
-                invites: [],
-                permissions: [],
-                permissions_roles: [],
-                permissions_users: [],
-                posts: [],
-                posts_tags: [],
-                roles: [],
-                roles_users: [],
-                settings: [],
-                subscribers: [],
-                tags: [],
-                users: []
-            }
-        }]
-    });
-};
+const {exportedBodyV2} = require('../../utils/fixtures/export/body-generator');
 
 // Tests in here do an import for each test
 describe('Integration: Importer', function () {
@@ -125,15 +36,13 @@ describe('Integration: Importer', function () {
         sinon.restore();
     });
 
-    should.exist(importer);
-
     describe('Empty database (except of owner user), general tests', function () {
         beforeEach(testUtils.setup('roles', 'owner', 'settings'));
 
         it('ensure return structure', function () {
             let exportData;
 
-            return dataImporter.doImport(exportedLatestBody().db[0], importOptions)
+            return dataImporter.doImport(exportedBodyV2().db[0], importOptions)
                 .then(function (importResult) {
                     should.exist(importResult);
                     importResult.hasOwnProperty('data').should.be.true();
@@ -142,7 +51,7 @@ describe('Integration: Importer', function () {
         });
 
         it('cares about invalid dates and date formats', function () {
-            let exportData = exportedLatestBody().db[0];
+            let exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
                 created_at: '00-00-0000 00:00:00',
@@ -191,7 +100,7 @@ describe('Integration: Importer', function () {
         });
 
         it('warning that theme was not imported', function () {
-            let exportData = exportedLatestBody().db[0];
+            let exportData = exportedBodyV2().db[0];
 
             exportData.data.settings[0] = testUtils.DataGenerator.forKnex.createSetting({
                 key: 'active_theme',
@@ -211,7 +120,7 @@ describe('Integration: Importer', function () {
         });
 
         it('removes duplicate users', function () {
-            let exportData = exportedLatestBody().db[0];
+            let exportData = exportedBodyV2().db[0];
 
             exportData.data.users[0] = testUtils.DataGenerator.forKnex.createUser({
                 name: 'Joe Bloggs',
@@ -233,7 +142,7 @@ describe('Integration: Importer', function () {
         });
 
         it('removes duplicate posts', function () {
-            let exportData = exportedLatestBody().db[0];
+            let exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
                 slug: 'same'
@@ -255,7 +164,7 @@ describe('Integration: Importer', function () {
         });
 
         it('does not treat posts without slug as duplicate', function () {
-            let exportData = exportedLatestBody().db[0];
+            let exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = {
                 title: 'duplicate title'
@@ -280,7 +189,7 @@ describe('Integration: Importer', function () {
         });
 
         it('can import user with missing allowed fields', function () {
-            let exportData = exportedLatestBody().db[0];
+            let exportData = exportedBodyV2().db[0];
 
             exportData.data.users[0] = testUtils.DataGenerator.forKnex.createUser();
             delete exportData.data.users[0].website;
@@ -298,7 +207,7 @@ describe('Integration: Importer', function () {
         });
 
         it('removes duplicate tags and updates associations', function () {
-            let exportData = exportedLatestBody().db[0];
+            let exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost();
 
@@ -338,7 +247,7 @@ describe('Integration: Importer', function () {
         });
 
         it('removes broken tags from post (not in db, not in file)', function () {
-            let exportData = exportedLatestBody().db[0];
+            let exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
                 slug: 'welcome-to-ghost-2'
@@ -363,7 +272,7 @@ describe('Integration: Importer', function () {
         });
 
         it('imports post status', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({status: 'scheduled', slug: 'post1'});
             exportData.data.posts[1] = testUtils.DataGenerator.forKnex.createPost({status: 'published', slug: 'post2'});
@@ -381,7 +290,7 @@ describe('Integration: Importer', function () {
 
         // @TODO: ensure permissions, roles etc are not imported (!)
         it('ensure complex JSON get\'s fully imported', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             return dataImporter.doImport(exportData, importOptions)
                 .then(function () {
@@ -413,7 +322,7 @@ describe('Integration: Importer', function () {
         });
 
         it('import owner, ensure original owner stays as is', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.users[0] = testUtils.DataGenerator.forKnex.createUser();
             exportData.data.roles_users[0] = [
@@ -443,7 +352,7 @@ describe('Integration: Importer', function () {
         });
 
         it('imports comment_id correctly', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost();
 
@@ -455,7 +364,7 @@ describe('Integration: Importer', function () {
         });
 
         it('handles validation errors nicely', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({slug: 'post1'});
             exportData.data.posts[0].title = null;
@@ -511,7 +420,7 @@ describe('Integration: Importer', function () {
         });
 
         it('does import data with invalid user references', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({author_id: 2, published_by: 2});
             exportData.data.users[0] = testUtils.DataGenerator.forKnex.createUser();
@@ -561,7 +470,7 @@ describe('Integration: Importer', function () {
         });
 
         it('invalid uuid', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({uuid: '528258181e668', slug: 'post1'});
             exportData.data.posts[1] = testUtils.DataGenerator.forKnex.createPost({uuid: '', slug: 'post2'});
@@ -581,7 +490,7 @@ describe('Integration: Importer', function () {
         });
 
         it('ensure post tag order is correct', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({slug: 'post1', published_at: moment().add(3, 'day').toDate()});
             exportData.data.posts[1] = testUtils.DataGenerator.forKnex.createPost({slug: 'post2', published_at: moment().add(1, 'day').toDate()});
@@ -636,7 +545,7 @@ describe('Integration: Importer', function () {
         });
 
         it('import multiple users, tags, posts', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.users[0] = testUtils.DataGenerator.forKnex.createUser({email: 'user1@ghost.org', slug: 'user1'});
             exportData.data.users[1] = testUtils.DataGenerator.forKnex.createUser({email: 'user2@ghost.org', slug: 'user2', created_by: exportData.data.users[0].id});
@@ -794,7 +703,7 @@ describe('Integration: Importer', function () {
         });
 
         it('can handle if user has multiple roles attached', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.users[0] = testUtils.DataGenerator.forKnex.createUser({
                 email: 'user1@ghost.org',
@@ -831,7 +740,7 @@ describe('Integration: Importer', function () {
         });
 
         it('can handle related tags with missing optional fields', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost();
 
@@ -880,7 +789,7 @@ describe('Integration: Importer', function () {
         });
 
         it('can handle uppercase tags', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost();
 
@@ -913,7 +822,7 @@ describe('Integration: Importer', function () {
         });
 
         it('does not import settings: labs', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.settings[0] = testUtils.DataGenerator.forKnex.createSetting({
                 key: 'labs',
@@ -931,7 +840,7 @@ describe('Integration: Importer', function () {
         });
 
         it('does not import settings: slack_url', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.settings[0] = testUtils.DataGenerator.forKnex.createSetting({
                 key: 'slack_url',
@@ -949,7 +858,7 @@ describe('Integration: Importer', function () {
         });
 
         it('does not import settings: slack_url from slack object', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.settings[0] = testUtils.DataGenerator.forKnex.createSetting({
                 key: 'slack',
@@ -967,7 +876,7 @@ describe('Integration: Importer', function () {
         });
 
         it('imports settings fields deprecated in v2 and removed in v3: slack hook, permalinks', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.settings[0] = testUtils.DataGenerator.forKnex.createSetting({
                 key: 'default_locale',
@@ -1007,7 +916,7 @@ describe('Integration: Importer', function () {
         });
 
         it('does import settings with string booleans', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.settings[0] = testUtils.DataGenerator.forKnex.createSetting({
                 key: 'amp',
@@ -1048,7 +957,7 @@ describe('Integration: Importer', function () {
         });
 
         it('import comment_id', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
                 slug: 'post1',
@@ -1072,7 +981,7 @@ describe('Integration: Importer', function () {
         });
 
         it('ensure authors are imported correctly', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.users[0] = testUtils.DataGenerator.forKnex.createUser({email: 'user1@ghost.org', slug: 'user1'});
             exportData.data.users[1] = testUtils.DataGenerator.forKnex.createUser({email: 'user2@ghost.org', slug: 'user2'});
@@ -1157,7 +1066,7 @@ describe('Integration: Importer', function () {
         });
 
         it('import 1.0 Koenig post format', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
                 slug: 'post1',
@@ -1198,7 +1107,7 @@ describe('Integration: Importer', function () {
         });
 
         it('import 2.0 Koenig post format', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
                 slug: 'post1',
@@ -1262,7 +1171,7 @@ describe('Integration: Importer', function () {
         });
 
         it('Can import stripe plans with an "amount" of 0', async function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.settings.push({
                 id: 'blahblah',
@@ -1294,7 +1203,7 @@ describe('Integration: Importer', function () {
         beforeEach(testUtils.setup('users:roles', 'posts', 'settings'));
 
         it('import multiple users, tags, posts', function () {
-            const exportData = exportedLatestBody().db[0];
+            const exportData = exportedBodyV2().db[0];
 
             exportData.data.users[0] = testUtils.DataGenerator.forKnex.createUser({
                 email: 'user1@ghost.org',
@@ -1394,257 +1303,5 @@ describe('Integration: Importer', function () {
                     users.length.should.equal(exportData.data.users.length + testUtils.DataGenerator.forKnex.users.length, 'Wrong number of users');
                 });
         });
-    });
-});
-
-describe('1.0', function () {
-    beforeEach(testUtils.teardownDb);
-    beforeEach(testUtils.setup('roles', 'owner', 'settings'));
-
-    it('ensure amp field get\'s respected', function () {
-        const exportData = exportedPreviousBody().db[0];
-
-        exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
-            slug: 'post1',
-            amp: 2
-        });
-
-        exportData.data.posts[1] = testUtils.DataGenerator.forKnex.createPost({
-            slug: 'post2',
-            amp: null
-        });
-
-        return dataImporter.doImport(exportData, importOptions)
-            .then(function () {
-                return Promise.all([
-                    models.Post.findPage(testUtils.context.internal)
-                ]);
-            }).then(function (result) {
-                const posts = result[0].data.map(model => model.toJSON());
-
-                posts.length.should.eql(2);
-                posts[0].comment_id.should.eql(exportData.data.posts[1].id);
-                posts[1].comment_id.should.eql('2');
-            });
-    });
-
-    describe('migrate mobiledoc/html', function () {
-        it('invalid mobiledoc structure', function () {
-            const exportData = exportedPreviousBody().db[0];
-
-            exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
-                slug: 'post1',
-                html: 'test',
-                mobiledoc: '{}'
-            });
-
-            exportData.data.posts[1] = testUtils.DataGenerator.forKnex.createPost({
-                slug: 'post2'
-            });
-
-            exportData.data.posts[1].mobiledoc = '{';
-            const options = Object.assign({formats: 'mobiledoc,html'}, testUtils.context.internal);
-
-            return dataImporter.doImport(exportData, importOptions)
-                .then(function (result) {
-                    return Promise.all([
-                        models.Post.findPage(options)
-                    ]);
-                }).then(function (result) {
-                    const posts = result[0].data.map(model => model.toJSON(options));
-
-                    posts.length.should.eql(2);
-                    should(posts[0].html).eql(null);
-                    posts[0].mobiledoc.should.eql('{"version":"0.3.1","ghostVersion":"4.0","markups":[],"atoms":[],"cards":[],"sections":[[1,"p",[[0,[],0,""]]]]}');
-
-                    should(posts[1].html).eql(null);
-                    posts[1].mobiledoc.should.eql('{"version":"0.3.1","ghostVersion":"4.0","markups":[],"atoms":[],"cards":[],"sections":[[1,"p",[[0,[],0,""]]]]}');
-                });
-        });
-
-        it('mobiledoc is null, html field is set', function () {
-            const exportData = exportedPreviousBody().db[0];
-
-            exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
-                slug: 'post1',
-                html: '<div><h1>This is my post content.</h1></div>'
-            });
-
-            exportData.data.posts[0].mobiledoc = null;
-
-            const options = Object.assign({formats: 'mobiledoc,html'}, testUtils.context.internal);
-
-            return dataImporter.doImport(exportData, importOptions)
-                .then(function () {
-                    return Promise.all([
-                        models.Post.findPage(options)
-                    ]);
-                }).then(function (result) {
-                    const posts = result[0].data.map(model => model.toJSON(options));
-
-                    posts.length.should.eql(1);
-                    should(posts[0].html).eql(null);
-                    posts[0].mobiledoc.should.eql('{"version":"0.3.1","ghostVersion":"4.0","markups":[],"atoms":[],"cards":[],"sections":[[1,"p",[[0,[],0,""]]]]}');
-                });
-        });
-
-        it('mobiledoc and html is null', function () {
-            const exportData = exportedPreviousBody().db[0];
-
-            exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
-                slug: 'post1'
-            });
-
-            exportData.data.posts[0].mobiledoc = null;
-            exportData.data.posts[0].html = null;
-
-            const options = Object.assign({formats: 'mobiledoc,html'}, testUtils.context.internal);
-
-            return dataImporter.doImport(exportData, importOptions)
-                .then(function () {
-                    return Promise.all([
-                        models.Post.findPage(options)
-                    ]);
-                }).then(function (result) {
-                    const posts = result[0].data.map(model => model.toJSON(options));
-
-                    posts.length.should.eql(1);
-                    should(posts[0].html).eql(null);
-                    posts[0].mobiledoc.should.eql('{"version":"0.3.1","ghostVersion":"4.0","markups":[],"atoms":[],"cards":[],"sections":[[1,"p",[[0,[],0,""]]]]}');
-                });
-        });
-
-        it('mobiledoc is set and html is null', function () {
-            const exportData = exportedPreviousBody().db[0];
-
-            exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
-                slug: 'post1'
-            });
-
-            exportData.data.posts[0].html = null;
-
-            const options = Object.assign({formats: 'mobiledoc,html'}, testUtils.context.internal);
-
-            return dataImporter.doImport(exportData, importOptions)
-                .then(function () {
-                    return Promise.all([
-                        models.Post.findPage(options)
-                    ]);
-                }).then(function (result) {
-                    const posts = result[0].data.map(model => model.toJSON(options));
-
-                    posts.length.should.eql(1);
-                    posts[0].html.should.eql('<!--kg-card-begin: markdown--><h2 id="markdown">markdown</h2>\n<!--kg-card-end: markdown-->');
-                    posts[0].mobiledoc.should.eql('{"version":"0.3.1","markups":[],"atoms":[],"cards":[["markdown",{"markdown":"## markdown"}]],"sections":[[10,0]],"ghostVersion":"3.0"}');
-                });
-        });
-
-        it('post has "kg-card-markdown" class', function () {
-            const exportData = exportedPreviousBody().db[0];
-
-            exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
-                slug: 'post1',
-                html: '<div class="kg-card-markdown"><h1>This is my post content.</h1></div>',
-                mobiledoc: testUtils.DataGenerator.markdownToMobiledoc('# This is my post content')
-            });
-
-            const options = Object.assign({formats: 'mobiledoc,html'}, testUtils.context.internal);
-
-            return dataImporter.doImport(exportData, importOptions)
-                .then(function () {
-                    return Promise.all([
-                        models.Post.findPage(options)
-                    ]);
-                }).then(function (result) {
-                    const posts = result[0].data.map(model => model.toJSON(options));
-
-                    posts.length.should.eql(1);
-                    posts[0].html.should.eql('<!--kg-card-begin: markdown--><h1 id="thisismypostcontent">This is my post content</h1>\n<!--kg-card-end: markdown-->');
-                    const expectedMobiledoc = JSON.parse(exportData.data.posts[0].mobiledoc);
-                    expectedMobiledoc.ghostVersion = '3.0';
-                    posts[0].mobiledoc.should.eql(JSON.stringify(expectedMobiledoc));
-                });
-        });
-
-        it('import old Koenig Beta post format', function () {
-            const exportData = exportedPreviousBody().db[0];
-
-            exportData.data.posts[0] = testUtils.DataGenerator.forKnex.createPost({
-                slug: 'post1',
-                mobiledoc: JSON.stringify({
-                    version: '0.3.1',
-                    markups: [],
-                    atoms: [],
-                    cards: [
-                        ['image', {
-                            imageStyle: 'wide',
-                            src: 'source'
-                        }],
-                        ['markdown', {
-                            markdown: '# Post Content'
-                        }]
-                    ],
-                    sections: [[10,0],[10,1]]
-                })
-            });
-
-            delete exportData.data.posts[0].html;
-
-            exportData.data.posts[1] = testUtils.DataGenerator.forKnex.createPost({
-                slug: 'post2',
-                mobiledoc: JSON.stringify({
-                    version: '0.3.1',
-                    markups: [],
-                    atoms: [],
-                    cards: [
-                        ['markdown', {
-                            markdown: '## Post Content'
-                        }],
-                        ['image', {
-                            imageStyle: 'not-wide',
-                            src: 'source2'
-                        }]
-                    ],
-                    sections: [[10,0],[10,1]]
-                }),
-                html: '<div class="kg-post"><h2 id="postcontent">Post Content</h2></div>\n'
-            });
-
-            const options = Object.assign({formats: 'mobiledoc,html'}, testUtils.context.internal);
-
-            return dataImporter.doImport(exportData, importOptions)
-                .then(function () {
-                    return Promise.all([
-                        models.Post.findPage(options)
-                    ]);
-                }).then(function (result) {
-                    const posts = result[0].data.map(model => model.toJSON(options));
-
-                    posts.length.should.eql(2);
-
-                    posts[0].mobiledoc.should.eql('{"version":"0.3.1","markups":[],"atoms":[],"cards":[["markdown",{"markdown":"## Post Content"}],["image",{"src":"source2","cardWidth":"not-wide"}]],"sections":[[10,0],[10,1]],"ghostVersion":"3.0"}');
-                    posts[0].html.should.eql('<!--kg-card-begin: markdown--><h2 id="postcontent">Post Content</h2>\n<!--kg-card-end: markdown--><figure class="kg-card kg-image-card kg-width-not-wide"><img src="source2" class="kg-image" alt loading="lazy"></figure>');
-
-                    posts[1].mobiledoc.should.eql('{"version":"0.3.1","markups":[],"atoms":[],"cards":[["image",{"src":"source","cardWidth":"wide"}],["markdown",{"markdown":"# Post Content"}]],"sections":[[10,0],[10,1]],"ghostVersion":"3.0"}');
-                    posts[1].html.should.eql('<figure class="kg-card kg-image-card kg-width-wide"><img src="source" class="kg-image" alt loading="lazy"></figure><!--kg-card-begin: markdown--><h1 id="postcontent">Post Content</h1>\n<!--kg-card-end: markdown-->');
-                });
-        });
-    });
-});
-
-describe('LTS', function () {
-    beforeEach(testUtils.teardownDb);
-    beforeEach(testUtils.setup('roles', 'owner', 'settings'));
-
-    it('disallows importing LTS imports', function () {
-        const exportData = exportedLegacyBody().db[0];
-
-        return dataImporter.doImport(exportData, importOptions)
-            .then(function () {
-                '0'.should.eql(1, 'LTS import should fail');
-            })
-            .catch(function (err) {
-                err.message.should.eql('Detected unsupported file structure.');
-            });
     });
 });

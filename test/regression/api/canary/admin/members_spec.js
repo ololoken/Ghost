@@ -42,7 +42,7 @@ describe('Members API', function () {
                 const jsonResponse = res.body;
                 should.exist(jsonResponse.members);
                 localUtils.API.checkResponse(jsonResponse, 'members');
-                jsonResponse.members.should.have.length(4);
+                jsonResponse.members.should.have.length(5);
 
                 jsonResponse.members[0].email.should.equal('paid@test.com');
                 jsonResponse.members[0].email_open_rate.should.equal(80);
@@ -63,7 +63,7 @@ describe('Members API', function () {
             .then((res) => {
                 const jsonResponse = res.body;
                 localUtils.API.checkResponse(jsonResponse, 'members');
-                jsonResponse.members.should.have.length(4);
+                jsonResponse.members.should.have.length(5);
 
                 jsonResponse.members[0].email.should.equal('member2@test.com');
                 jsonResponse.members[0].email_open_rate.should.equal(50);
@@ -559,78 +559,6 @@ describe('Members API', function () {
 
                 should.exist(jsonResponse.meta.import_label);
                 jsonResponse.meta.import_label.slug.should.match(/^import-/);
-            });
-    });
-
-    it('Can fetch stats with no ?days param', function () {
-        return request
-            .get(localUtils.API.getApiQuery('members/stats/'))
-            .set('Origin', config.get('url'))
-            .expect('Content-Type', /json/)
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            // .expect(200) - doesn't surface underlying errors in tests
-            .then((res) => {
-                res.status.should.equal(200, JSON.stringify(res.body));
-
-                should.not.exist(res.headers['x-cache-invalidate']);
-                const jsonResponse = res.body;
-
-                should.exist(jsonResponse);
-                should.exist(jsonResponse.total);
-                should.exist(jsonResponse.total_in_range);
-                should.exist(jsonResponse.total_on_date);
-                should.exist(jsonResponse.new_today);
-
-                // 3 from fixtures and 6 imported in previous tests
-                jsonResponse.total.should.equal(10);
-            });
-    });
-
-    it('Can fetch stats with ?days=90', function () {
-        return request
-            .get(localUtils.API.getApiQuery('members/stats/?days=90'))
-            .set('Origin', config.get('url'))
-            .expect('Content-Type', /json/)
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            // .expect(200) - doesn't surface underlying errors in tests
-            .then((res) => {
-                res.status.should.equal(200, JSON.stringify(res.body));
-
-                should.not.exist(res.headers['x-cache-invalidate']);
-                const jsonResponse = res.body;
-
-                should.exist(jsonResponse);
-                should.exist(jsonResponse.total);
-                should.exist(jsonResponse.total_in_range);
-                should.exist(jsonResponse.total_on_date);
-                should.exist(jsonResponse.new_today);
-
-                // 3 from fixtures and 6 imported in previous tests
-                jsonResponse.total.should.equal(10);
-            });
-    });
-
-    it('Can fetch stats with ?days=all-time', function () {
-        return request
-            .get(localUtils.API.getApiQuery('members/stats/?days=all-time'))
-            .set('Origin', config.get('url'))
-            .expect('Content-Type', /json/)
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            // .expect(200) - doesn't surface underlying errors in tests
-            .then((res) => {
-                res.status.should.equal(200, JSON.stringify(res.body));
-
-                should.not.exist(res.headers['x-cache-invalidate']);
-                const jsonResponse = res.body;
-
-                should.exist(jsonResponse);
-                should.exist(jsonResponse.total);
-                should.exist(jsonResponse.total_in_range);
-                should.exist(jsonResponse.total_on_date);
-                should.exist(jsonResponse.new_today);
-
-                // 3 from fixtures and 6 imported in previous tests
-                jsonResponse.total.should.equal(10);
             });
     });
 

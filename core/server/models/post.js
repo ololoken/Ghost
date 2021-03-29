@@ -80,6 +80,68 @@ Post = ghostBookshelf.Model.extend({
         }
     },
 
+    parse() {
+        const attrs = ghostBookshelf.Model.prototype.parse.apply(this, arguments);
+
+        // transform URLs from __GHOST_URL__ to absolute
+        [
+            'mobiledoc',
+            'html',
+            'plaintext',
+            'custom_excerpt',
+            'codeinjection_head',
+            'codeinjection_foot',
+            'feature_image',
+            'og_image',
+            'twitter_image',
+            'canonical_url'
+        ].forEach((attr) => {
+            if (attrs[attr]) {
+                attrs[attr] = urlUtils.transformReadyToAbsolute(attrs[attr]);
+            }
+        });
+
+        return attrs;
+    },
+
+    // Alternative to Bookshelf's .format() that is only called when writing to db
+    formatOnWrite(attrs) {
+        // Ensure all URLs are stored as transform-ready with __GHOST_URL__ representing config.url
+        const urlTransformMap = {
+            mobiledoc: 'mobiledocToTransformReady',
+            html: 'htmlToTransformReady',
+            plaintext: 'plaintextToTransformReady',
+            custom_excerpt: 'htmlToTransformReady',
+            codeinjection_head: 'htmlToTransformReady',
+            codeinjection_foot: 'htmlToTransformReady',
+            feature_image: 'toTransformReady',
+            og_image: 'toTransformReady',
+            twitter_image: 'toTransformReady',
+            canonical_url: {
+                method: 'toTransformReady',
+                options: {
+                    ignoreProtocol: false
+                }
+            }
+        };
+
+        Object.entries(urlTransformMap).forEach(([attrToTransform, transform]) => {
+            let method = transform;
+            let transformOptions = {};
+
+            if (typeof transform === 'object') {
+                method = transform.method;
+                transformOptions = transform.options || {};
+            }
+
+            if (attrs[attrToTransform]) {
+                attrs[attrToTransform] = urlUtils[method](attrs[attrToTransform], transformOptions);
+            }
+        });
+
+        return attrs;
+    },
+
     /**
      * The base model keeps only the columns, which are defined in the schema.
      * We have to add the relations on top, otherwise bookshelf-relations
@@ -309,7 +371,7 @@ Post = ghostBookshelf.Model.extend({
         });
     },
 
-    onSaving: async function onSaving(model, attr, options) {
+    onSaving: async function onSaving(model, attrs, options) {
         options = options || {};
 
         const self = this;
@@ -418,39 +480,6 @@ Post = ghostBookshelf.Model.extend({
         if (!this.get('mobiledoc')) {
             this.set('mobiledoc', JSON.stringify(mobiledocLib.blankDocument));
         }
-
-        // ensure all URLs are stored as transform-ready with __GHOST_URL__ representing config.url
-        // note: html is not necessary to change because it's a generated later from mobiledoc
-        const urlTransformMap = {
-            mobiledoc: 'mobiledocToTransformReady',
-            custom_excerpt: 'htmlToTransformReady',
-            codeinjection_head: 'htmlToTransformReady',
-            codeinjection_foot: 'htmlToTransformReady',
-            feature_image: 'toTransformReady',
-            og_image: 'toTransformReady',
-            twitter_image: 'toTransformReady',
-            canonical_url: {
-                method: 'toTransformReady',
-                options: {
-                    ignoreProtocol: false
-                }
-            }
-        };
-
-        Object.entries(urlTransformMap).forEach(([attrToTransform, transform]) => {
-            let method = transform;
-            let transformOptions = {};
-
-            if (typeof transform === 'object') {
-                method = transform.method;
-                transformOptions = transform.options || {};
-            }
-
-            if (this.hasChanged(attrToTransform) && this.get(attrToTransform)) {
-                const transformedValue = urlUtils[method](this.get(attrToTransform), transformOptions);
-                this.set(attrToTransform, transformedValue);
-            }
-        });
 
         // If we're force re-rendering we want to make sure that all image cards
         // have original dimensions stored in the payload for use by card renderers

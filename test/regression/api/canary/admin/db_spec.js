@@ -49,9 +49,8 @@ describe('DB API', function () {
         sinon.restore();
     });
 
-    // SKIPPED: we no longer have the "extra" clients and client_trusted_domains tables
-    it.skip('can export the database with more tables', function () {
-        return request.get(localUtils.API.getApiQuery('db/?include=clients,client_trusted_domains'))
+    it('can export the database with more tables', function () {
+        return request.get(localUtils.API.getApiQuery('db/?include=mobiledoc_revisions'))
             .set('Origin', config.get('url'))
             .expect('Content-Type', /json/)
             .expect(200)
@@ -59,7 +58,9 @@ describe('DB API', function () {
                 const jsonResponse = res.body;
                 should.exist(jsonResponse.db);
                 jsonResponse.db.should.have.length(1);
-                Object.keys(jsonResponse.db[0].data).length.should.eql(29);
+
+                // NOTE: 9 default tables + 1 from include parameters
+                Object.keys(jsonResponse.db[0].data).length.should.eql(10);
             });
     });
 
@@ -168,5 +169,146 @@ describe('DB API', function () {
             .set('Origin', config.get('url'))
             .expect('Content-Type', /json/)
             .expect(200);
+    });
+
+    it('Can import a JSON database exported from Ghost v2', async function () {
+        await request.delete(localUtils.API.getApiQuery('db/'))
+            .set('Origin', config.get('url'))
+            .set('Accept', 'application/json')
+            .expect(204);
+
+        // preventively remove default "fixture" user
+        const fixtureUserResponse = await request.get(localUtils.API.getApiQuery('users/slug/fixture/'))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private);
+
+        if (fixtureUserResponse.body.users) {
+            await request.delete(localUtils.API.getApiQuery(`users/${fixtureUserResponse.body.users[0].id}`))
+                .set('Origin', config.get('url'))
+                .set('Accept', 'application/json');
+        }
+
+        const res = await request.post(localUtils.API.getApiQuery('db/'))
+            .set('Origin', config.get('url'))
+            .set('Accept', 'application/json')
+            .expect('Content-Type', /json/)
+            .attach('importfile', path.join(__dirname, '/../../../../utils/fixtures/export/v2_export.json'))
+            .expect(200);
+
+        const jsonResponse = res.body;
+        should.exist(jsonResponse.db);
+        should.exist(jsonResponse.problems);
+        jsonResponse.problems.should.have.length(2);
+
+        const postsResponse = await request.get(localUtils.API.getApiQuery('posts/'))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200);
+
+        postsResponse.body.posts.should.have.length(7);
+
+        const usersResponse = await request.get(localUtils.API.getApiQuery('users/'))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200);
+
+        usersResponse.body.users.should.have.length(3);
+    });
+
+    it('Can import a JSON database exported from Ghost 3.0', async function () {
+        await request.delete(localUtils.API.getApiQuery('db/'))
+            .set('Origin', config.get('url'))
+            .set('Accept', 'application/json')
+            .expect(204);
+
+        // preventively remove default "fixture" user
+        const fixtureUserResponse = await request.get(localUtils.API.getApiQuery('users/slug/fixture/'))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private);
+
+        if (fixtureUserResponse.body.users) {
+            await request.delete(localUtils.API.getApiQuery(`users/${fixtureUserResponse.body.users[0].id}`))
+                .set('Origin', config.get('url'))
+                .set('Accept', 'application/json');
+        }
+
+        const res = await request.post(localUtils.API.getApiQuery('db/'))
+            .set('Origin', config.get('url'))
+            .set('Accept', 'application/json')
+            .expect('Content-Type', /json/)
+            .attach('importfile', path.join(__dirname, '/../../../../utils/fixtures/export/v3_export.json'))
+            .expect(200);
+
+        const jsonResponse = res.body;
+        should.exist(jsonResponse.db);
+        should.exist(jsonResponse.problems);
+        jsonResponse.problems.should.have.length(2);
+
+        const res2 = await request.get(localUtils.API.getApiQuery('posts/'))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200);
+
+        res2.body.posts.should.have.length(7);
+
+        const usersResponse = await request.get(localUtils.API.getApiQuery('users/'))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200);
+
+        usersResponse.body.users.should.have.length(3);
+    });
+
+    it('Can import a JSON database exported from Ghost 4.0', async function () {
+        await request.delete(localUtils.API.getApiQuery('db/'))
+            .set('Origin', config.get('url'))
+            .set('Accept', 'application/json')
+            .expect(204);
+
+        // preventively remove default "fixture" user
+        const fixtureUserResponse = await request.get(localUtils.API.getApiQuery('users/slug/fixture/'))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private);
+
+        if (fixtureUserResponse.body.users) {
+            await request.delete(localUtils.API.getApiQuery(`users/${fixtureUserResponse.body.users[0].id}`))
+                .set('Origin', config.get('url'))
+                .set('Accept', 'application/json');
+        }
+
+        const res = await request.post(localUtils.API.getApiQuery('db/'))
+            .set('Origin', config.get('url'))
+            .set('Accept', 'application/json')
+            .expect('Content-Type', /json/)
+            .attach('importfile', path.join(__dirname, '/../../../../utils/fixtures/export/v4_export.json'))
+            .expect(200);
+
+        const jsonResponse = res.body;
+        should.exist(jsonResponse.db);
+        should.exist(jsonResponse.problems);
+        jsonResponse.problems.should.have.length(2);
+
+        const res2 = await request.get(localUtils.API.getApiQuery('posts/'))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200);
+
+        res2.body.posts.should.have.length(7);
+
+        const usersResponse = await request.get(localUtils.API.getApiQuery('users/'))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200);
+
+        usersResponse.body.users.should.have.length(3);
     });
 });

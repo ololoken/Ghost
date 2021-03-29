@@ -6,7 +6,7 @@ module.exports.forPost = (frame, model, attrs) => {
     if (!Object.prototype.hasOwnProperty.call(frame.options, 'columns') ||
         (frame.options.columns.includes('excerpt') && frame.options.formats && frame.options.formats.includes('plaintext'))) {
         if (_.isEmpty(attrs.custom_excerpt)) {
-            const plaintext = model.get('plaintext');
+            let plaintext = model.get('plaintext');
 
             if (plaintext) {
                 attrs.excerpt = plaintext.substring(0, 500);

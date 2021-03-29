@@ -5,6 +5,7 @@ const sinon = require('sinon');
 const config = require('../../../core/shared/config');
 const {events} = require('../../../core/server/lib/common');
 const testUtils = require('../../utils');
+const {exportedBodyLatest} = require('../../utils/fixtures/export/body-generator');
 const localUtils = require('./utils');
 
 describe('DB API', function () {
@@ -47,88 +48,12 @@ describe('DB API', function () {
         const jsonResponse = res.body;
         should.exist(jsonResponse.db);
         jsonResponse.db.should.have.length(1);
-        Object.keys(jsonResponse.db[0].data).length.should.eql(28);
-    });
 
-    it('Can import a JSON database exported from Ghost v2', async function () {
-        await request.delete(localUtils.API.getApiQuery('db/'))
-            .set('Origin', config.get('url'))
-            .set('Accept', 'application/json')
-            .expect(204);
+        const dataKeys = Object.keys(exportedBodyLatest().db[0].data).sort();
 
-        const res = await request.post(localUtils.API.getApiQuery('db/'))
-            .set('Origin', config.get('url'))
-            .set('Accept', 'application/json')
-            .expect('Content-Type', /json/)
-            .attach('importfile', path.join(__dirname, '/../../utils/fixtures/export/v2_export.json'))
-            .expect(200);
-
-        const jsonResponse = res.body;
-        should.exist(jsonResponse.db);
-        should.exist(jsonResponse.problems);
-        jsonResponse.problems.should.have.length(3);
-
-        const res2 = await request.get(localUtils.API.getApiQuery('posts/'))
-            .set('Origin', config.get('url'))
-            .expect('Content-Type', /json/)
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            .expect(200);
-
-        res2.body.posts.should.have.length(7);
-    });
-
-    it('Can import a JSON database exported from Ghost v3', async function () {
-        await request.delete(localUtils.API.getApiQuery('db/'))
-            .set('Origin', config.get('url'))
-            .set('Accept', 'application/json')
-            .expect(204);
-
-        const res = await request.post(localUtils.API.getApiQuery('db/'))
-            .set('Origin', config.get('url'))
-            .set('Accept', 'application/json')
-            .expect('Content-Type', /json/)
-            .attach('importfile', path.join(__dirname, '/../../utils/fixtures/export/v3_export.json'))
-            .expect(200);
-
-        const jsonResponse = res.body;
-        should.exist(jsonResponse.db);
-        should.exist(jsonResponse.problems);
-        jsonResponse.problems.should.have.length(3);
-
-        const res2 = await request.get(localUtils.API.getApiQuery('posts/'))
-            .set('Origin', config.get('url'))
-            .expect('Content-Type', /json/)
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            .expect(200);
-
-        res2.body.posts.should.have.length(7);
-    });
-
-    it('Can import a JSON database exported from Ghost v4', async function () {
-        await request.delete(localUtils.API.getApiQuery('db/'))
-            .set('Origin', config.get('url'))
-            .set('Accept', 'application/json')
-            .expect(204);
-
-        const res = await request.post(localUtils.API.getApiQuery('db/'))
-            .set('Origin', config.get('url'))
-            .set('Accept', 'application/json')
-            .expect('Content-Type', /json/)
-            .attach('importfile', path.join(__dirname, '/../../utils/fixtures/export/v4_export.json'))
-            .expect(200);
-
-        const jsonResponse = res.body;
-        should.exist(jsonResponse.db);
-        should.exist(jsonResponse.problems);
-        jsonResponse.problems.should.have.length(3);
-
-        const res2 = await request.get(localUtils.API.getApiQuery('posts/'))
-            .set('Origin', config.get('url'))
-            .expect('Content-Type', /json/)
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            .expect(200);
-
-        res2.body.posts.should.have.length(7);
+        // NOTE: using `Object.keys` here instead of `should.have.only.keys` assertion
+        //       because when `have.only.keys` fails there's no useful diff
+        Object.keys(jsonResponse.db[0].data).sort().should.be.eql(dataKeys);
     });
 
     it('Can delete all content', async function () {

@@ -72,6 +72,8 @@ describe('Default Frontend routing', function () {
             $('article.post').length.should.equal(7);
             $('article.tag-getting-started').length.should.equal(7);
 
+            res.text.should.not.containEql('__GHOST_URL__');
+
             doEnd(res);
         });
 
@@ -90,6 +92,8 @@ describe('Default Frontend routing', function () {
             $('article.post').length.should.equal(7);
             $('article.tag-getting-started').length.should.equal(7);
 
+            res.text.should.not.containEql('__GHOST_URL__');
+
             doEnd(res);
         });
 
@@ -107,6 +111,8 @@ describe('Default Frontend routing', function () {
             $('body.tag-template').length.should.equal(1);
             $('article.post').length.should.equal(7);
             $('article.tag-getting-started').length.should.equal(7);
+
+            res.text.should.not.containEql('__GHOST_URL__');
 
             doEnd(res);
         });
@@ -128,6 +134,8 @@ describe('Default Frontend routing', function () {
             $('body.tag-getting-started').length.should.equal(1);
             $('article.post').length.should.equal(2);
             $('article.tag-getting-started').length.should.equal(2);
+
+            res.text.should.not.containEql('__GHOST_URL__');
 
             doEnd(res);
         });
@@ -205,6 +213,12 @@ describe('Default Frontend routing', function () {
             $('body.amp-template').length.should.equal(1);
             $('article.post').length.should.equal(1);
 
+            $('style[amp-custom]').length.should.equal(1);
+
+            res.text.should.containEql(':root {--ghost-accent-color: #FF1A75;}');
+
+            res.text.should.not.containEql('__GHOST_URL__');
+
             doEnd(res);
         });
 
@@ -246,6 +260,7 @@ describe('Default Frontend routing', function () {
                 .expect('Content-Type', 'text/xml; charset=utf-8');
 
             res.text.should.match(/<!\[CDATA\[Start here for a quick overview of everything you need to know\]\]>/);
+            res.text.should.not.containEql('__GHOST_URL__');
             doEnd(res);
         });
 
@@ -256,6 +271,7 @@ describe('Default Frontend routing', function () {
                 .expect('Content-Type', 'text/xml; charset=utf-8');
 
             res.text.should.match(/<!\[CDATA\[Start here for a quick overview of everything you need to know\]\]>/);
+            res.text.should.not.containEql('__GHOST_URL__');
             doEnd(res);
         });
 
@@ -266,6 +282,7 @@ describe('Default Frontend routing', function () {
                 .expect('Content-Type', 'text/xml; charset=utf-8');
 
             res.text.should.match(/<!\[CDATA\[Start here for a quick overview of everything you need to know\]\]>/);
+            res.text.should.not.containEql('__GHOST_URL__');
             doEnd(res);
         });
     });
@@ -302,6 +319,7 @@ describe('Default Frontend routing', function () {
         before(async function () {
             await testUtils.clearData();
             await testUtils.initData();
+            await testUtils.initFixtures('posts');
         });
 
         it('should serve sitemap.xml', async function () {
@@ -311,6 +329,7 @@ describe('Default Frontend routing', function () {
                 .expect('Content-Type', 'text/xml; charset=utf-8');
 
             res.text.should.match(/sitemapindex/);
+            res.text.should.not.containEql('__GHOST_URL__');
             doEnd(res);
         });
 
@@ -321,6 +340,7 @@ describe('Default Frontend routing', function () {
                 .expect('Content-Type', 'text/xml; charset=utf-8');
 
             res.text.should.match(/urlset/);
+            res.text.should.not.containEql('__GHOST_URL__');
             doEnd(res);
         });
 
@@ -331,6 +351,7 @@ describe('Default Frontend routing', function () {
                 .expect('Content-Type', 'text/xml; charset=utf-8');
 
             res.text.should.match(/urlset/);
+            res.text.should.not.containEql('__GHOST_URL__');
             doEnd(res);
         });
 
@@ -341,6 +362,7 @@ describe('Default Frontend routing', function () {
                 .expect('Content-Type', 'text/xml; charset=utf-8');
 
             res.text.should.match(/urlset/);
+            res.text.should.not.containEql('__GHOST_URL__');
             doEnd(res);
         });
 
@@ -351,6 +373,7 @@ describe('Default Frontend routing', function () {
                 .expect('Content-Type', 'text/xml; charset=utf-8');
 
             res.text.should.match(/urlset/);
+            res.text.should.not.containEql('__GHOST_URL__');
             doEnd(res);
         });
 
@@ -361,6 +384,7 @@ describe('Default Frontend routing', function () {
                 .expect('Content-Type', 'text/xsl');
 
             res.text.should.match(/urlset/);
+            res.text.should.not.containEql('__GHOST_URL__');
             doEnd(res);
         });
     });
