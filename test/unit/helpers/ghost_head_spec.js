@@ -7,7 +7,7 @@ const moment = require('moment');
 const testUtils = require('../../utils');
 const testUrlUtils = require('../../utils/urlUtils');
 const configUtils = require('../../utils/configUtils');
-const themes = require('../../../core/frontend/services/themes');
+const themeEngine = require('../../../core/frontend/services/theme-engine');
 const models = require('../../../core/server/models');
 const imageLib = require('../../../core/server/lib/image');
 const routing = require('../../../core/frontend/services/routing');
@@ -287,7 +287,7 @@ describe('{{ghost_head}} helper', function () {
         // @TODO: this is a LOT of mocking :/
         sinon.stub(routing.registry, 'getRssUrl').returns('http://localhost:65530/rss/');
         sinon.stub(imageLib.imageSize, 'getImageSizeFromUrl').resolves();
-        sinon.stub(themes, 'getActive').returns({
+        sinon.stub(themeEngine, 'getActive').returns({
             engine: () => 'v2'
         });
 
@@ -1680,6 +1680,124 @@ describe('{{ghost_head}} helper', function () {
             })).then(function (rendered) {
                 should.exist(rendered);
                 rendered.string.should.not.containEql('--ghost-accent-color');
+                done();
+            }).catch(done);
+        });
+    });
+
+    describe('members scripts', function () {
+        it('includes portal when signup is "all"', function (done) {
+            settingsCache.get.withArgs('members_signup_access').returns('all');
+
+            helpers.ghost_head(testUtils.createHbsResponse({
+                locals: {
+                    relativeUrl: '/',
+                    context: ['home', 'index'],
+                    safeVersion: '4.3'
+                }
+            })).then(function (rendered) {
+                should.exist(rendered);
+                rendered.string.should.containEql('<script defer src="https://unpkg.com/@tryghost/portal');
+                rendered.string.should.containEql('<style id="gh-members-styles">');
+                done();
+            }).catch(done);
+        });
+
+        it('includes portal when signup is "invite"', function (done) {
+            settingsCache.get.withArgs('members_signup_access').returns('invite');
+
+            helpers.ghost_head(testUtils.createHbsResponse({
+                locals: {
+                    relativeUrl: '/',
+                    context: ['home', 'index'],
+                    safeVersion: '4.3'
+                }
+            })).then(function (rendered) {
+                should.exist(rendered);
+                rendered.string.should.containEql('<script defer src="https://unpkg.com/@tryghost/portal');
+                rendered.string.should.containEql('<style id="gh-members-styles">');
+                done();
+            }).catch(done);
+        });
+
+        it('includes stripe when set up as direct', function (done) {
+            settingsCache.get.withArgs('members_signup_access').returns('all');
+            settingsCache.get.withArgs('stripe_secret_key').returns('secret');
+            settingsCache.get.withArgs('stripe_publishable_key').returns('publishable');
+            settingsCache.get.withArgs('stripe_connect_account_id').returns(null);
+
+            helpers.ghost_head(testUtils.createHbsResponse({
+                locals: {
+                    relativeUrl: '/',
+                    context: ['home', 'index'],
+                    safeVersion: '4.3'
+                }
+            })).then(function (rendered) {
+                should.exist(rendered);
+                rendered.string.should.containEql('<script defer src="https://unpkg.com/@tryghost/portal');
+                rendered.string.should.containEql('<style id="gh-members-styles">');
+                rendered.string.should.containEql('<script async src="https://js.stripe.com');
+                done();
+            }).catch(done);
+        });
+
+        it('includes stripe when set up as connect', function (done) {
+            settingsCache.get.withArgs('members_signup_access').returns('all');
+            settingsCache.get.withArgs('stripe_secret_key').returns(null);
+            settingsCache.get.withArgs('stripe_publishable_key').returns(null);
+            settingsCache.get.withArgs('stripe_connect_account_id').returns('connect_account');
+
+            helpers.ghost_head(testUtils.createHbsResponse({
+                locals: {
+                    relativeUrl: '/',
+                    context: ['home', 'index'],
+                    safeVersion: '4.3'
+                }
+            })).then(function (rendered) {
+                should.exist(rendered);
+                rendered.string.should.containEql('<script defer src="https://unpkg.com/@tryghost/portal');
+                rendered.string.should.containEql('<style id="gh-members-styles">');
+                rendered.string.should.containEql('<script async src="https://js.stripe.com');
+                done();
+            }).catch(done);
+        });
+
+        it('skips portal and stripe when signup is "none"', function (done) {
+            settingsCache.get.withArgs('members_signup_access').returns('none');
+            settingsCache.get.withArgs('stripe_connect_account_id').returns('connect_account');
+
+            helpers.ghost_head(testUtils.createHbsResponse({
+                locals: {
+                    relativeUrl: '/',
+                    context: ['home', 'index'],
+                    safeVersion: '4.3'
+                }
+            })).then(function (rendered) {
+                should.exist(rendered);
+                rendered.string.should.not.containEql('<script defer src="https://unpkg.com/@tryghost/portal');
+                rendered.string.should.not.containEql('<style id="gh-members-styles">');
+                rendered.string.should.not.containEql('<script async src="https://js.stripe.com');
+                done();
+            }).catch(done);
+        });
+
+        it('skips stripe if not set up', function (done) {
+            settingsCache.get.withArgs('members_signup_access').returns('all');
+            settingsCache.get.withArgs('stripe_secret_key', null);
+            settingsCache.get.withArgs('stripe_publishable_key', null);
+            settingsCache.get.withArgs('stripe_connect_account_id', null);
+
+            helpers.ghost_head(testUtils.createHbsResponse({
+                locals: {
+                    relativeUrl: '/',
+                    context: ['home', 'index'],
+                    safeVersion: '4.3'
+                }
+            })).then(function (rendered) {
+                should.exist(rendered);
+                rendered.string.should.containEql('<script defer src="https://unpkg.com/@tryghost/portal');
+                rendered.string.should.containEql('<style id="gh-members-styles">');
+                rendered.string.should.not.containEql('<script async src="https://js.stripe.com');
                 done();
             }).catch(done);
         });

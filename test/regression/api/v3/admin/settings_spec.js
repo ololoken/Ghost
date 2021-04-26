@@ -35,7 +35,7 @@ const defaultSettingsKeyTypes = [
     {key: 'password', type: 'private'},
     {key: 'public_hash', type: 'private'},
     {key: 'default_content_visibility', type: 'members'},
-    {key: 'members_allow_free_signup', type: 'members'},
+    {key: 'members_signup_access', type: 'members'},
     {key: 'members_from_address', type: 'members'},
     {key: 'members_support_address', type: 'members'},
     {key: 'members_reply_address', type: 'members'},
@@ -75,7 +75,9 @@ const defaultSettingsKeyTypes = [
     {key: 'newsletter_body_font_category', type: 'newsletter'},
     {key: 'newsletter_footer_content', type: 'newsletter'},
     {key: 'firstpromoter', type: 'firstpromoter'},
-    {key: 'firstpromoter_id', type: 'firstpromoter'}
+    {key: 'firstpromoter_id', type: 'firstpromoter'},
+    {key: 'oauth_client_id', type: 'oauth'},
+    {key: 'oauth_client_secret', type: 'oauth'}
 ];
 
 describe('Settings API (v3)', function () {

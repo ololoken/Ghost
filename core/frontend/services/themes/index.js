@@ -4,21 +4,16 @@ const {i18n: commonI18n} = require('../proxy');
 const logging = require('../../../shared/logging');
 const errors = require('@tryghost/errors');
 const themeLoader = require('./loader');
-const active = require('./active');
 const activate = require('./activate');
 const validate = require('./validate');
-const i18n = require('./i18n');
 const list = require('./list');
 const settingsCache = require('../../../server/services/settings/cache');
-const engineDefaults = require('./engines/defaults');
 
 module.exports = {
     // Init themes module
     // TODO: move this once we're clear what needs to happen here
     init: function initThemes() {
         const activeThemeName = settingsCache.get('active_theme');
-
-        i18n.init(activeThemeName);
 
         debug('init themes', activeThemeName);
         // Just read the active theme for now
@@ -74,14 +69,6 @@ module.exports = {
             });
     },
     getJSON: require('./to-json'),
-    getActive: active.get,
-    getApiVersion: function getApiVersion() {
-        if (this.getActive()) {
-            return this.getActive().engine('ghost-api');
-        } else {
-            return engineDefaults['ghost-api'];
-        }
-    },
     activate: function (themeName) {
         const loadedTheme = list.get(themeName);
 
@@ -101,8 +88,6 @@ module.exports = {
             });
     },
     storage: require('./storage'),
-    middleware: require('./middleware'),
-    loadCoreHelpers: require('./handlebars/helpers').loadCoreHelpers,
     /**
      * Load all inactive themes
      */

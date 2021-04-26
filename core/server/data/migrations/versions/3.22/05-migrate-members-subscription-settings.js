@@ -150,7 +150,7 @@ module.exports = {
         logging.info(`Inserting members_subscription_settings setting`);
         await knex('settings')
             .insert({
-                id: ObjectId.generate(),
+                id: ObjectId().toHexString(),
                 key: 'members_subscription_settings',
                 value: JSON.stringify(membersSubscriptionSettings),
                 group: 'members',

@@ -15,7 +15,7 @@ const emailAnalyticsService = require('../../core/server/services/email-analytic
 const permissions = require('../../core/server/services/permissions');
 const settingsService = require('../../core/server/services/settings');
 const settingsCache = require('../../core/server/services/settings/cache');
-const themes = require('../../core/frontend/services/themes');
+const themeService = require('../../core/frontend/services/themes');
 
 // Other Test Utilities
 const context = require('./fixtures/context');
@@ -305,7 +305,7 @@ const fixtures = {
         let extraUsers = _.cloneDeep(DataGenerator.Content.users.slice(2, 6));
         extraUsers = _.map(extraUsers, function (user) {
             return DataGenerator.forKnex.createUser(_.extend({}, user, {
-                id: ObjectId.generate(),
+                id: ObjectId().toHexString(),
                 email: 'a' + user.email,
                 slug: 'a' + user.slug
             }));
@@ -391,7 +391,7 @@ const fixtures = {
         }
 
         permsToInsert = _.map(permsToInsert, function (perms) {
-            perms.id = ObjectId.generate();
+            perms.id = ObjectId().toHexString();
 
             actions.push({type: perms.action_type, permissionId: perms.id});
             return DataGenerator.forKnex.createBasic(perms);
@@ -476,6 +476,18 @@ const fixtures = {
         }).then(function () {
             return Promise.each(_.cloneDeep(DataGenerator.forKnex.members_stripe_customers), function (customer) {
                 return models.MemberStripeCustomer.add(customer, context.internal);
+            });
+        }).then(function () {
+            return Promise.each(_.cloneDeep(DataGenerator.forKnex.products), function (product) {
+                return models.Product.add(product, context.internal);
+            });
+        }).then(function () {
+            return Promise.each(_.cloneDeep(DataGenerator.forKnex.stripe_products), function (stripeProduct) {
+                return models.StripeProduct.add(stripeProduct, context.internal);
+            });
+        }).then(function () {
+            return Promise.each(_.cloneDeep(DataGenerator.forKnex.stripe_prices), function (stripePrice) {
+                return models.StripePrice.add(stripePrice, context.internal);
             });
         }).then(function () {
             return Promise.each(_.cloneDeep(DataGenerator.forKnex.stripe_customer_subscriptions), function (subscription) {
@@ -584,7 +596,7 @@ const toDoList = {
         return fixtures.insertInvites();
     },
     themes: function loadThemes() {
-        return themes.loadAll();
+        return themeService.loadAll();
     },
     webhooks: function insertWebhooks() {
         return fixtures.insertWebhooks();

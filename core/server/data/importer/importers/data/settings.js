@@ -134,7 +134,7 @@ class SettingsImporter extends BaseImporter {
                             : deprecatedSetting.value;
 
                         this.dataToImport.push({
-                            id: ObjectId.generate(),
+                            id: ObjectId().toHexString(),
                             key: to.key,
                             value: value,
                             group: to.group,
@@ -162,6 +162,13 @@ class SettingsImporter extends BaseImporter {
             // accent_color can be empty pre-4.x
             if (data.key === 'accent_color' && !data.value) {
                 data.value = '#15171A';
+            }
+
+            // members_allow_free_signup was renamed to members_signup_access in 4.3
+            if (data.key === 'members_allow_free_signup') {
+                data.key = 'members_signup_access';
+                data.value = data.value ? 'all' : 'invite';
+                data.type = 'string';
             }
 
             return data;

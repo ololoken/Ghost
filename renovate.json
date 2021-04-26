@@ -1,6 +1,7 @@
 {
   "extends": [
     "@tryghost:quietJS",
+    "@tryghost:disableTryGhostAutomerge",
     "@tryghost:groupTestLint",
     "@tryghost:groupCSS",
     "@tryghost:groupBuildTools"
@@ -12,7 +13,6 @@
       "moment",
       "moment-timezone",
       "nodemailer",
-      "tmp",
       "validator",
       "simple-dom"
     ],

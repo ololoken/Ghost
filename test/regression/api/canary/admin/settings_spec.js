@@ -37,7 +37,7 @@ const defaultSettingsKeyTypes = [
     {key: 'password', type: 'private'},
     {key: 'public_hash', type: 'private'},
     {key: 'default_content_visibility', type: 'members'},
-    {key: 'members_allow_free_signup', type: 'members'},
+    {key: 'members_signup_access', type: 'members'},
     {key: 'members_from_address', type: 'members'},
     {key: 'members_support_address', type: 'members'},
     {key: 'members_reply_address', type: 'members'},
@@ -77,7 +77,9 @@ const defaultSettingsKeyTypes = [
     {key: 'newsletter_body_font_category', type: 'newsletter'},
     {key: 'newsletter_footer_content', type: 'newsletter'},
     {key: 'firstpromoter', type: 'firstpromoter'},
-    {key: 'firstpromoter_id', type: 'firstpromoter'}
+    {key: 'firstpromoter_id', type: 'firstpromoter'},
+    {key: 'oauth_client_id', type: 'oauth'},
+    {key: 'oauth_client_secret', type: 'oauth'}
 ];
 
 describe('Settings API (canary)', function () {
@@ -208,6 +210,66 @@ describe('Settings API (canary)', function () {
                 .expect('Content-Type', /json/)
                 .expect('Cache-Control', testUtils.cacheRules.private)
                 .expect(403);
+        });
+
+        it('Can\'t read secret setting', function (done) {
+            const key = 'stripe_secret_key';
+            request
+                .get(localUtils.API.getApiQuery(`settings/${key}/`))
+                .set('Origin', config.get('url'))
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .expect(200)
+                .end(function (err, res) {
+                    if (err) {
+                        return done(err);
+                    }
+
+                    const json = res.body;
+                    should.exist(json);
+                    should.exist(json.settings);
+
+                    json.settings.length.should.eql(1);
+                    json.settings[0].key.should.eql('stripe_secret_key');
+                    should(json.settings[0].value).be.null();
+
+                    done();
+                });
+        });
+
+        it('Can\'t read secret setting', function (done) {
+            const key = 'stripe_secret_key';
+            request.put(localUtils.API.getApiQuery('settings/'))
+                .set('Origin', config.get('url'))
+                .send({
+                    settings: [{
+                        key,
+                        value: 'sk_test_4eC39HqLyjWDarjtT1zdp7dc'
+                    }]
+                })
+                .then(() => {
+                    request
+                        .get(localUtils.API.getApiQuery(`settings/${key}/`))
+                        .set('Origin', config.get('url'))
+                        .expect('Content-Type', /json/)
+                        .expect('Cache-Control', testUtils.cacheRules.private)
+                        .expect(200)
+                        .end(function (err, res) {
+                            if (err) {
+                                return done(err);
+                            }
+
+                            const json = res.body;
+                            should.exist(json);
+                            should.exist(json.settings);
+
+                            json.settings.length.should.eql(1);
+                            json.settings[0].key.should.eql('stripe_secret_key');
+                            json.settings[0].value.should.eql('••••••••');
+
+                            done();
+                        });
+                });
         });
 
         it('Can\'t read permalinks', function (done) {

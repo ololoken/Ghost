@@ -1,11 +1,14 @@
 const should = require('should');
 const BaseModel = require('../../../core/server/models/base');
 const {Label} = require('../../../core/server/models/label');
+const {Product} = require('../../../core/server/models/product');
 const {Member} = require('../../../core/server/models/member');
 const {MemberStripeCustomer} = require('../../../core/server/models/member-stripe-customer');
 const {StripeCustomerSubscription} = require('../../../core/server/models/stripe-customer-subscription');
 
 const testUtils = require('../../utils');
+const {StripeProduct} = require('../../../core/server/models/stripe-product');
+const {StripePrice} = require('../../../core/server/models/stripe-price');
 
 describe('Member Model', function run() {
     before(testUtils.teardownDb);
@@ -25,6 +28,27 @@ describe('Member Model', function run() {
 
             should.exist(member, 'Member should have been created');
 
+            const product = await Product.add({
+                name: 'Ghost Product',
+                slug: 'ghost-product'
+            }, context);
+
+            await StripeProduct.add({
+                product_id: product.get('id'),
+                stripe_product_id: 'fake_product_id'
+            }, context);
+
+            await StripePrice.add({
+                stripe_price_id: 'fake_plan_id',
+                stripe_product_id: 'fake_product_id',
+                amount: 5000,
+                interval: 'monthly',
+                active: 1,
+                nickname: 'Monthly',
+                currency: 'USD',
+                type: 'recurring'
+            }, context);
+
             await MemberStripeCustomer.add({
                 member_id: member.get('id'),
                 customer_id: 'fake_customer_id1'
@@ -39,6 +63,7 @@ describe('Member Model', function run() {
                 customer_id: 'fake_customer_id1',
                 subscription_id: 'fake_subscription_id1',
                 plan_id: 'fake_plan_id',
+                stripe_price_id: 'fake_plan_id',
                 plan_amount: 1337,
                 plan_nickname: 'e-LEET',
                 plan_interval: 'year',
@@ -53,6 +78,7 @@ describe('Member Model', function run() {
                 customer_id: 'fake_customer_id2',
                 subscription_id: 'fake_subscription_id2',
                 plan_id: 'fake_plan_id',
+                stripe_price_id: 'fake_plan_id',
                 plan_amount: 1337,
                 plan_nickname: 'e-LEET',
                 plan_interval: 'year',
@@ -160,10 +186,32 @@ describe('Member Model', function run() {
 
             should.exist(customer, 'Customer should have been created');
 
+            const product = await Product.add({
+                name: 'Ghost Product',
+                slug: 'ghost-product'
+            }, context);
+
+            await StripeProduct.add({
+                product_id: product.get('id'),
+                stripe_product_id: 'fake_product_id'
+            }, context);
+
+            await StripePrice.add({
+                stripe_price_id: 'fake_plan_id',
+                stripe_product_id: 'fake_product_id',
+                amount: 5000,
+                interval: 'monthly',
+                active: 1,
+                nickname: 'Monthly',
+                currency: 'USD',
+                type: 'recurring'
+            }, context);
+
             await StripeCustomerSubscription.add({
                 customer_id: 'fake_customer_id',
                 subscription_id: 'fake_subscription_id',
                 plan_id: 'fake_plan_id',
+                stripe_price_id: 'fake_plan_id',
                 plan_amount: 1337,
                 plan_nickname: 'e-LEET',
                 plan_interval: 'year',
@@ -216,6 +264,85 @@ describe('Member Model', function run() {
                 queryResult.models[0].get('name').should.equal('Mr Egg');
                 done();
             }).catch(done);
+        });
+    });
+
+    describe('products', function () {
+        it('Products can be created & added to members by the product array', async function () {
+            const context = testUtils.context.admin;
+            const product = await Product.add({
+                name: 'Product-Add-Test'
+            });
+            const member = await Member.add({
+                email: 'testing-products@test.member',
+                products: [{
+                    id: product.id
+                }, {
+                    name: 'Product-Create-Test'
+                }]
+            }, {
+                ...context,
+                withRelated: ['products']
+            });
+
+            const createdProduct = await Product.findOne({
+                name: 'Product-Create-Test'
+            }, context);
+
+            should.exist(createdProduct, 'Product should have been created');
+
+            const products = member.related('products').toJSON();
+
+            should.exist(
+                products.find(model => model.name === 'Product-Create-Test')
+            );
+
+            should.exist(
+                products.find(model => model.name === 'Product-Add-Test')
+            );
+        });
+    });
+
+    describe('Filtering on products', function () {
+        it('Should allow filtering on products', async function () {
+            const context = testUtils.context.admin;
+
+            await Member.add({
+                email: 'filter-test@test.member',
+                products: [{
+                    name: 'VIP',
+                    slug: 'vip'
+                }]
+            }, context);
+
+            const member = await Member.findOne({
+                email: 'filter-test@test.member'
+            }, context);
+
+            should.exist(member, 'Member should have been created');
+
+            const product = await Product.findOne({
+                slug: 'vip'
+            }, context);
+
+            should.exist(product, 'Product should have been created');
+
+            const memberProduct = await BaseModel.knex('members_products').where({
+                product_id: product.get('id'),
+                member_id: member.get('id')
+            }).select().first();
+
+            should.exist(memberProduct, 'Product should have been attached to member');
+
+            const vipProductMembers = await Member.findPage({filter: 'products:vip'});
+            const foundMemberInVIP = vipProductMembers.data.find(model => model.id === member.id);
+
+            should.exist(foundMemberInVIP, 'Member should have been included in products filter');
+
+            const podcastProductMembers = await Member.findPage({filter: 'products:podcast'});
+            const foundMemberInPodcast = podcastProductMembers.data.find(model => model.id === member.id);
+
+            should.not.exist(foundMemberInPodcast, 'Member should not have been included in products filter');
         });
     });
 });
