@@ -7,10 +7,14 @@ const StripeCustomerSubscription = ghostBookshelf.Model.extend({
         return this.belongsTo('MemberStripeCustomer', 'customer_id', 'customer_id');
     },
 
+    stripePrice() {
+        return this.hasOne('StripePrice', 'stripe_price_id', 'stripe_price_id');
+    },
+
     serialize(options) {
         const defaultSerializedObject = ghostBookshelf.Model.prototype.serialize.call(this, options);
 
-        return {
+        const serialized = {
             id: defaultSerializedObject.subscription_id,
             customer: {
                 id: defaultSerializedObject.customer_id,
@@ -32,6 +36,29 @@ const StripeCustomerSubscription = ghostBookshelf.Model.extend({
             cancellation_reason: defaultSerializedObject.cancellation_reason,
             current_period_end: defaultSerializedObject.current_period_end
         };
+
+        if (defaultSerializedObject.stripePrice) {
+            serialized.price = {
+                id: defaultSerializedObject.stripePrice.stripe_price_id,
+                price_id: defaultSerializedObject.stripePrice.id,
+                nickname: defaultSerializedObject.stripePrice.nickname,
+                amount: defaultSerializedObject.stripePrice.amount,
+                interval: defaultSerializedObject.stripePrice.interval,
+                type: defaultSerializedObject.stripePrice.type,
+                currency: String.prototype.toUpperCase.call(defaultSerializedObject.stripePrice.currency)
+            };
+
+            if (defaultSerializedObject.stripePrice.stripeProduct) {
+                const productData = defaultSerializedObject.stripePrice.stripeProduct.product || {};
+                serialized.price.product = {
+                    id: defaultSerializedObject.stripePrice.stripeProduct.stripe_product_id,
+                    name: productData.name,
+                    product_id: defaultSerializedObject.stripePrice.stripeProduct.product_id
+                };
+            }
+        }
+
+        return serialized;
     }
 
 }, {

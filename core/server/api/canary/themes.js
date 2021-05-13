@@ -2,13 +2,13 @@ const fs = require('fs-extra');
 const os = require('os');
 const path = require('path');
 const security = require('@tryghost/security');
-const {events} = require('../../lib/common');
-const themeService = require('../../../frontend/services/themes');
+const events = require('../../lib/common/events');
+const themeService = require('../../services/themes');
 const limitService = require('../../services/limits');
 const models = require('../../models');
 const request = require('../../lib/request');
 const errors = require('@tryghost/errors/lib/errors');
-const i18n = require('../../lib/common/i18n');
+const i18n = require('../../../shared/i18n');
 
 module.exports = {
     docName: 'themes',

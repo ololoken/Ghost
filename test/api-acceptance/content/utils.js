@@ -1,7 +1,7 @@
 const url = require('url');
 const _ = require('lodash');
 const testUtils = require('../../utils');
-const schema = require('../../../core/server/data/schema').tables;
+
 const API_URL = '/ghost/api/canary/content/';
 
 const expectedProperties = {
@@ -11,72 +11,75 @@ const expectedProperties = {
     authors: ['authors', 'meta'],
     pagination: ['page', 'limit', 'pages', 'total', 'next', 'prev'],
 
-    post: _(schema.posts)
-        .keys()
-        .filter(key => key.indexOf('@@') === -1)
-        // by default we only return html
-        .without('mobiledoc', 'plaintext')
-        // v2 doesn't return author_id OR author
-        .without('author_id', 'author')
-        // and always returns computed properties: url
-        .concat('url')
-        // v2 API doesn't return unused fields
-        .without('locale')
-        // These fields aren't useful as they always have known values
-        .without('status')
-        // v2 API doesn't return new type field
-        .without('type')
-        // @TODO: https://github.com/TryGhost/Ghost/issues/10335
-        // .without('page')
-        // v2 returns a calculated excerpt field
-        .concat('excerpt')
-        // Access is a calculated property in >= v3
-        .concat('access')
-        // returns meta fields from `posts_meta` schema
-        .concat(
-            ..._(schema.posts_meta).keys().without('post_id', 'id')
-        )
-        .concat('reading_time')
-    ,
-    author: _(schema.users)
-        .keys()
-        .without(
-            'password',
-            'email',
-            'created_at',
-            'created_by',
-            'updated_at',
-            'updated_by',
-            'last_seen',
-            'status'
-        )
-        // v2 API doesn't return unused fields
-        .without('accessibility', 'locale', 'tour', 'visibility')
-    ,
-    tag: _(schema.tags)
-        .keys()
-        // v2 Tag API doesn't return parent_id or parent
-        .without('parent_id', 'parent')
-        // v2 Tag API doesn't return date fields
-        .without('created_at', 'updated_at')
+    post: [
+        'id',
+        'uuid',
+        'title',
+        'slug',
+        'html',
+        'comment_id',
+        'feature_image',
+        'featured',
+        'visibility',
+        'email_recipient_filter',
+        'created_at',
+        'updated_at',
+        'published_at',
+        'custom_excerpt',
+        'codeinjection_head',
+        'codeinjection_foot',
+        'custom_template',
+        'canonical_url',
+        'url',
+        'excerpt',
+        'access',
+        'og_image',
+        'og_title',
+        'og_description',
+        'twitter_image',
+        'twitter_title',
+        'twitter_description',
+        'meta_title',
+        'meta_description',
+        'email_subject',
+        'frontmatter',
+        'reading_time'
+    ],
+    author: [
+        'id',
+        'name',
+        'slug',
+        'profile_image',
+        'cover_image',
+        'bio',
+        'website',
+        'location',
+        'facebook',
+        'twitter',
+        'meta_title',
+        'meta_description'
+    ],
+    tag: [
+        'id',
+        'name',
+        'slug',
+        'description',
+        'feature_image',
+        'visibility',
+        'og_image',
+        'og_title',
+        'og_description',
+        'twitter_image',
+        'twitter_title',
+        'twitter_description',
+        'meta_title',
+        'meta_description',
+        'codeinjection_head',
+        'codeinjection_foot',
+        'canonical_url',
+        'accent_color'
+    ]
 };
-
-_.each(expectedProperties, (value, key) => {
-    if (!value.__wrapped__) {
-        return;
-    }
-
-    /**
-     * @deprecated: x_by
-     */
-    expectedProperties[key] = value
-        .without(
-            'created_by',
-            'updated_by',
-            'published_by'
-        )
-        .value();
-});
 
 module.exports = {
     API: {

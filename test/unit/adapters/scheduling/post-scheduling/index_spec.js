@@ -5,7 +5,7 @@ const Promise = require('bluebird');
 const moment = require('moment');
 const testUtils = require('../../../../utils');
 const models = require('../../../../../core/server/models');
-const {events} = require('../../../../../core/server/lib/common');
+const events = require('../../../../../core/server/lib/common/events');
 const api = require('../../../../../core/server/api');
 const schedulingUtils = require('../../../../../core/server/adapters/scheduling/utils');
 const SchedulingDefault = require('../../../../../core/server/adapters/scheduling/SchedulingDefault');
@@ -37,12 +37,6 @@ describe.skip('Scheduling: Post Scheduling', function () {
 
         sinon.stub(api.schedules, 'getScheduledPosts').callsFake(function () {
             return Promise.resolve({posts: scope.scheduledPosts});
-        });
-
-        sinon.stub(events, 'onMany').callsFake(function (stubedEvents, stubDone) {
-            stubedEvents.forEach(function (event) {
-                scope.events[event] = stubDone;
-            });
         });
 
         sinon.stub(schedulingUtils, 'createAdapter').returns(Promise.resolve(scope.adapter));

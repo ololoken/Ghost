@@ -18,6 +18,10 @@ const site = {
                 defaultLocale: settingsCache.get('lang'),
                 version: ghostVersion.safe
             };
+            if (settingsCache.get('oauth_client_id') && settingsCache.get('oauth_client_secret')) {
+                // Only set the oauth flag if oauth is enabled to avoid API changes
+                response.oauth = true;
+            }
 
             return response;
         }

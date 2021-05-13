@@ -15,7 +15,6 @@ const emailAnalyticsService = require('../../core/server/services/email-analytic
 const permissions = require('../../core/server/services/permissions');
 const settingsService = require('../../core/server/services/settings');
 const settingsCache = require('../../core/server/services/settings/cache');
-const themeService = require('../../core/frontend/services/themes');
 
 // Other Test Utilities
 const context = require('./fixtures/context');
@@ -458,32 +457,40 @@ const fixtures = {
         });
     },
 
-    insertMembersAndLabels: function insertMembersAndLabels() {
+    insertMembersAndLabelsAndProducts: function insertMembersAndLabelsAndProducts() {
         return Promise.map(DataGenerator.forKnex.labels, function (label) {
             return models.Label.add(label, context.internal);
         }).then(function () {
-            return Promise.each(_.cloneDeep(DataGenerator.forKnex.members), function (member) {
-                let memberLabelRelations = _.filter(DataGenerator.forKnex.members_labels, {member_id: member.id});
+            let productsToInsert = fixtureUtils.findModelFixtures('Product').entries;
+            return Promise.map(productsToInsert, product => models.Product.add(product, context.internal));
+        }).then(function () {
+            return models.Product.findOne({}, context.internal);
+        }).then(function (product) {
+            return Promise.props({
+                stripeProducts: Promise.each(_.cloneDeep(DataGenerator.forKnex.stripe_products), function (stripeProduct) {
+                    stripeProduct.product_id = product.id;
+                    return models.StripeProduct.add(stripeProduct, context.internal);
+                }),
+                members: Promise.each(_.cloneDeep(DataGenerator.forKnex.members), function (member) {
+                    let memberLabelRelations = _.filter(DataGenerator.forKnex.members_labels, {member_id: member.id});
 
-                memberLabelRelations = _.map(memberLabelRelations, function (memberLabelRelation) {
-                    return _.find(DataGenerator.forKnex.labels, {id: memberLabelRelation.label_id});
-                });
+                    memberLabelRelations = _.map(memberLabelRelations, function (memberLabelRelation) {
+                        return _.find(DataGenerator.forKnex.labels, {id: memberLabelRelation.label_id});
+                    });
 
-                member.labels = memberLabelRelations;
+                    member.labels = memberLabelRelations;
 
-                return models.Member.add(member, context.internal);
+                    // TODO: replace with full member/product associations
+                    if (member.email === 'with-product@test.com') {
+                        member.products = [{slug: product.get('slug')}];
+                    }
+
+                    return models.Member.add(member, context.internal);
+                })
             });
         }).then(function () {
             return Promise.each(_.cloneDeep(DataGenerator.forKnex.members_stripe_customers), function (customer) {
                 return models.MemberStripeCustomer.add(customer, context.internal);
-            });
-        }).then(function () {
-            return Promise.each(_.cloneDeep(DataGenerator.forKnex.products), function (product) {
-                return models.Product.add(product, context.internal);
-            });
-        }).then(function () {
-            return Promise.each(_.cloneDeep(DataGenerator.forKnex.stripe_products), function (stripeProduct) {
-                return models.StripeProduct.add(stripeProduct, context.internal);
             });
         }).then(function () {
             return Promise.each(_.cloneDeep(DataGenerator.forKnex.stripe_prices), function (stripePrice) {
@@ -540,8 +547,8 @@ const toDoList = {
     member: function insertMember() {
         return fixtures.insertOne('Member', 'members', 'createMember');
     },
-    members: function insertMembersAndLabels() {
-        return fixtures.insertMembersAndLabels();
+    members: function insertMembersAndLabelsAndProducts() {
+        return fixtures.insertMembersAndLabelsAndProducts();
     },
     'members:emails': function insertEmailsAndRecipients() {
         return fixtures.insertEmailsAndRecipients();
@@ -594,9 +601,6 @@ const toDoList = {
     },
     invites: function insertInvites() {
         return fixtures.insertInvites();
-    },
-    themes: function loadThemes() {
-        return themeService.loadAll();
     },
     webhooks: function insertWebhooks() {
         return fixtures.insertWebhooks();

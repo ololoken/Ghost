@@ -41,6 +41,8 @@ const defaultSettingsKeyTypes = [
     {key: 'members_reply_address', type: 'members'},
     {key: 'members_paid_signup_redirect', type: 'members'},
     {key: 'members_free_signup_redirect', type: 'members'},
+    {key: 'members_free_price_name', type: 'members'},
+    {key: 'members_free_price_description', type: 'members'},
     {key: 'stripe_product_name', type: 'members'},
     {key: 'stripe_plans', type: 'members'},
     {key: 'stripe_secret_key', type: 'members'},
@@ -77,7 +79,9 @@ const defaultSettingsKeyTypes = [
     {key: 'firstpromoter', type: 'firstpromoter'},
     {key: 'firstpromoter_id', type: 'firstpromoter'},
     {key: 'oauth_client_id', type: 'oauth'},
-    {key: 'oauth_client_secret', type: 'oauth'}
+    {key: 'oauth_client_secret', type: 'oauth'},
+    {key: 'editor_default_email_recipients', type: 'editor'},
+    {key: 'editor_default_email_recipients_filter', type: 'editor'}
 ];
 
 describe('Settings API (v3)', function () {

@@ -3,13 +3,6 @@ const crypto = require('crypto');
 const createKeypair = require('keypair');
 const path = require('path');
 
-const COMPLIMENTARY_PLAN = {
-    name: 'Complimentary',
-    currency: 'usd',
-    interval: 'year',
-    amount: '0'
-};
-
 class MembersConfigProvider {
     /**
      * @param {object} options
@@ -190,7 +183,7 @@ class MembersConfigProvider {
             product: {
                 name: this._settingsCache.get('stripe_product_name')
             },
-            plans: [COMPLIMENTARY_PLAN].concat(this._settingsCache.get('stripe_plans') || []),
+            plans: this._settingsCache.get('stripe_plans') || [],
             appInfo: {
                 name: 'Ghost',
                 partner_id: 'pp_partner_DKmRVtTs4j9pwZ',
@@ -215,7 +208,25 @@ class MembersConfigProvider {
     }
 
     getAllowSelfSignup() {
-        return this._settingsCache.get('members_signup_access') === 'all';
+        // 'invite' and 'none' members signup access disables all signup
+        if (this._settingsCache.get('members_signup_access') !== 'all') {
+            return false;
+        }
+
+        // if stripe is not connected then selected plans mean nothing.
+        // disabling signup would be done by switching to "invite only" mode
+        if (!this.isStripeConnected()) {
+            return true;
+        }
+
+        // self signup must be available for free plan signup to work
+        const hasFreePlan = this._settingsCache.get('portal_plans').includes('free');
+        if (hasFreePlan) {
+            return true;
+        }
+
+        // signup access is enabled but there's no free plan, don't allow self signup
+        return false;
     }
 
     getTokenConfig() {

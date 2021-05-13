@@ -337,6 +337,37 @@ describe('Posts API (canary)', function () {
                 });
         });
 
+        it('read-only value do not cause errors when edited', function () {
+            return request
+                .get(localUtils.API.getApiQuery(`posts/${testUtils.DataGenerator.Content.posts[0].id}/`))
+                .set('Origin', config.get('url'))
+                .expect(200)
+                .then((res) => {
+                    return request
+                        .put(localUtils.API.getApiQuery('posts/' + testUtils.DataGenerator.Content.posts[0].id + '/'))
+                        .set('Origin', config.get('url'))
+                        .send({
+                            posts: [{
+                                frontmatter: 'hey!',
+                                plaintext: 'hello!',
+                                updated_at: res.body.posts[0].updated_at
+                            }]
+                        })
+                        .expect('Content-Type', /json/)
+                        .expect('Cache-Control', testUtils.cacheRules.private)
+                        .expect(200);
+                })
+                .then((res) => {
+                    // NOTE: when ONLY ignored fields are posted they should not change a thing, thus cache stays untouched
+                    should.not.exist(res.headers['x-cache-invalidate']);
+
+                    should.exist(res.body.posts);
+                    should.exist(res.body.posts[0].published_at);
+                    should.equal(res.body.posts[0].frontmatter, null);
+                    should.equal(res.body.posts[0].plaintext, testUtils.DataGenerator.Content.posts[0].plaintext);
+                });
+        });
+
         it('html to plaintext', function () {
             return request
                 .get(localUtils.API.getApiQuery(`posts/${testUtils.DataGenerator.Content.posts[0].id}/`))
@@ -602,6 +633,40 @@ describe('Posts API (canary)', function () {
                     res.body.posts[0].title.should.equal('Has a title by no other content');
                     should.equal(res.body.posts[0].html, undefined);
                     should.equal(res.body.posts[0].plaintext, undefined);
+                });
+        });
+
+        it('errors with invalid email recipient filter', function () {
+            return request
+                .post(localUtils.API.getApiQuery('posts/'))
+                .set('Origin', config.get('url'))
+                .send({
+                    posts: [{
+                        title: 'Ready to be emailed',
+                        status: 'draft'
+                    }]
+                })
+                .expect('Content-Type', /json/)
+                .expect('Cache-Control', testUtils.cacheRules.private)
+                .expect(201)
+                .then((res) => {
+                    return request
+                        .put(`${localUtils.API.getApiQuery(`posts/${res.body.posts[0].id}/`)}?email_recipient_filter=not a filter`)
+                        .set('Origin', config.get('url'))
+                        .send({
+                            posts: [{
+                                title: res.body.posts[0].title,
+                                mobilecdoc: res.body.posts[0].mobilecdoc,
+                                updated_at: res.body.posts[0].updated_at,
+                                status: 'published'
+                            }]
+                        })
+                        .expect('Content-Type', /json/)
+                        .expect('Cache-Control', testUtils.cacheRules.private)
+                        .expect(400);
+                })
+                .then((res) => {
+                    res.text.should.match(/invalid filter/i);
                 });
         });
     });

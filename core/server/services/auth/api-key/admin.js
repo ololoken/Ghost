@@ -3,7 +3,7 @@ const url = require('url');
 const models = require('../../../models');
 const errors = require('@tryghost/errors');
 const limitService = require('../../../services/limits');
-const {i18n} = require('../../../lib/common');
+const i18n = require('../../../../shared/i18n');
 const _ = require('lodash');
 
 let JWT_OPTIONS_DEFAULTS = {
@@ -164,6 +164,7 @@ const authenticateWithToken = async (req, res, next, {token, JWT_OPTIONS}) => {
             req.user = user;
 
             next();
+            return;
         }
 
         // store the api key on the request for later checks and logging

@@ -14,16 +14,14 @@ const knexMigrator = new KnexMigrator();
 // Ghost Internals
 const config = require('../../core/shared/config');
 const boot = require('../../core/boot');
-const {events} = require('../../core/server/lib/common');
 const db = require('../../core/server/data/db');
 const models = require('../../core/server/models');
-const notify = require('../../core/server/notify');
 const urlService = require('../../core/frontend/services/url');
 const settingsService = require('../../core/server/services/settings');
 const frontendSettingsService = require('../../core/frontend/services/settings');
 const settingsCache = require('../../core/server/services/settings/cache');
 const web = require('../../core/server/web');
-const themeService = require('../../core/frontend/services/themes');
+const themeService = require('../../core/server/services/themes');
 const limits = require('../../core/server/services/limits');
 
 // Other Test Utilities
