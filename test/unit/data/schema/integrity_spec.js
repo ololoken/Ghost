@@ -32,9 +32,9 @@ const defaultSettings = require('../../../../core/server/data/schema/default-set
  */
 describe('DB version integrity', function () {
     // Only these variables should need updating
-    const currentSchemaHash = 'ffa4eec4208614b93b6b8fb68b55f126';
+    const currentSchemaHash = 'ef13a18aee78222086ca864c16bde696';
     const currentFixturesHash = '8671672598d2a62e53418c4b91aa79a3';
-    const currentSettingsHash = '45bafc7f4a55da9ce3d84282a34bbd11';
+    const currentSettingsHash = 'fec0d2f71557a9bd2ff5ff8b423e11be';
     const currentRoutesHash = '3d180d52c663d173a6be791ef411ed01';
 
     // If this test is failing, then it is likely a change has been made that requires a DB version bump,

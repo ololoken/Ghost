@@ -10,80 +10,421 @@ const ghost = testUtils.startGhost;
 // NOTE: in future iterations these fields should be fetched from a central module.
 //       Have put a list as is here for the lack of better place for it.
 const defaultSettingsKeyTypes = [
-    {key: 'title', type: 'blog'},
-    {key: 'description', type: 'blog'},
-    {key: 'logo', type: 'blog'},
-    {key: 'cover_image', type: 'blog'},
-    {key: 'icon', type: 'blog'},
-    {key: 'lang', type: 'blog'},
-    {key: 'locale', type: 'blog'},
-    {key: 'timezone', type: 'blog'},
-    {key: 'codeinjection_head', type: 'blog'},
-    {key: 'codeinjection_foot', type: 'blog'},
-    {key: 'facebook', type: 'blog'},
-    {key: 'twitter', type: 'blog'},
-    {key: 'navigation', type: 'blog'},
-    {key: 'secondary_navigation', type: 'blog'},
-    {key: 'meta_title', type: 'blog'},
-    {key: 'meta_description', type: 'blog'},
-    {key: 'og_image', type: 'blog'},
-    {key: 'og_title', type: 'blog'},
-    {key: 'og_description', type: 'blog'},
-    {key: 'twitter_image', type: 'blog'},
-    {key: 'twitter_title', type: 'blog'},
-    {key: 'twitter_description', type: 'blog'},
-    {key: 'active_theme', type: 'theme'},
-    {key: 'is_private', type: 'private'},
-    {key: 'password', type: 'private'},
-    {key: 'public_hash', type: 'private'},
-    {key: 'default_content_visibility', type: 'members'},
-    {key: 'members_signup_access', type: 'members'},
-    {key: 'members_from_address', type: 'members'},
-    {key: 'members_support_address', type: 'members'},
-    {key: 'members_reply_address', type: 'members'},
-    {key: 'members_paid_signup_redirect', type: 'members'},
-    {key: 'members_free_signup_redirect', type: 'members'},
-    {key: 'members_free_price_name', type: 'members'},
-    {key: 'members_free_price_description', type: 'members'},
-    {key: 'stripe_product_name', type: 'members'},
-    {key: 'stripe_plans', type: 'members'},
-    {key: 'stripe_secret_key', type: 'members'},
-    {key: 'stripe_publishable_key', type: 'members'},
-    {key: 'stripe_connect_secret_key', type: 'members'},
-    {key: 'stripe_connect_publishable_key', type: 'members'},
-    {key: 'stripe_connect_account_id', type: 'members'},
-    {key: 'stripe_connect_display_name', type: 'members'},
-    {key: 'stripe_connect_livemode', type: 'members'},
-    {key: 'portal_name', type: 'portal'},
-    {key: 'portal_button', type: 'portal'},
-    {key: 'portal_plans', type: 'portal'},
-    {key: 'portal_button_style', type: 'portal'},
-    {key: 'portal_button_icon', type: 'portal'},
-    {key: 'portal_button_signup_text', type: 'portal'},
-    {key: 'mailgun_api_key', type: 'bulk_email'},
-    {key: 'mailgun_domain', type: 'bulk_email'},
-    {key: 'mailgun_base_url', type: 'bulk_email'},
-    {key: 'email_track_opens', type: 'bulk_email'},
-    {key: 'amp', type: 'blog'},
-    {key: 'amp_gtag_id', type: 'blog'},
-    {key: 'slack', type: 'blog'},
-    {key: 'slack_url', type: 'blog'},
-    {key: 'slack_username', type: 'blog'},
-    {key: 'unsplash', type: 'blog'},
-    {key: 'shared_views', type: 'blog'},
-    {key: 'active_timezone', type: 'blog'},
-    {key: 'default_locale', type: 'blog'},
-    {key: 'accent_color', type: 'blog'},
-    {key: 'newsletter_show_badge', type: 'newsletter'},
-    {key: 'newsletter_show_header', type: 'newsletter'},
-    {key: 'newsletter_body_font_category', type: 'newsletter'},
-    {key: 'newsletter_footer_content', type: 'newsletter'},
-    {key: 'firstpromoter', type: 'firstpromoter'},
-    {key: 'firstpromoter_id', type: 'firstpromoter'},
-    {key: 'oauth_client_id', type: 'oauth'},
-    {key: 'oauth_client_secret', type: 'oauth'},
-    {key: 'editor_default_email_recipients', type: 'editor'},
-    {key: 'editor_default_email_recipients_filter', type: 'editor'}
+    {
+        key: 'title',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'description',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'logo',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'cover_image',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'icon',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'lang',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'locale',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'timezone',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'codeinjection_head',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'codeinjection_foot',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'facebook',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'twitter',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'navigation',
+        type: 'array',
+        group: 'site'
+    },
+    {
+        key: 'secondary_navigation',
+        type: 'array',
+        group: 'site'
+    },
+    {
+        key: 'meta_title',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'meta_description',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'og_image',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'og_title',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'og_description',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'twitter_image',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'twitter_title',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'twitter_description',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'active_theme',
+        type: 'string',
+        group: 'theme'
+    },
+    {
+        key: 'is_private',
+        type: 'boolean',
+        group: 'private'
+    },
+    {
+        key: 'password',
+        type: 'string',
+        group: 'private'
+    },
+    {
+        key: 'public_hash',
+        type: 'string',
+        group: 'private'
+    },
+    {
+        key: 'default_content_visibility',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'members_signup_access',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'members_from_address',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'members_support_address',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'members_reply_address',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'members_paid_signup_redirect',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'members_free_signup_redirect',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'members_free_price_name',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'members_free_price_description',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'members_monthly_price_id',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'members_yearly_price_id',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'stripe_product_name',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'stripe_plans',
+        type: 'array',
+        group: 'members'
+    },
+    {
+        key: 'stripe_secret_key',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'stripe_publishable_key',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'stripe_connect_secret_key',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'stripe_connect_publishable_key',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'stripe_connect_account_id',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'stripe_connect_display_name',
+        type: 'string',
+        group: 'members'
+    },
+    {
+        key: 'stripe_connect_livemode',
+        type: 'boolean',
+        group: 'members'
+    },
+    {
+        key: 'portal_name',
+        type: 'boolean',
+        group: 'portal'
+    },
+    {
+        key: 'portal_button',
+        type: 'boolean',
+        group: 'portal'
+    },
+    {
+        key: 'portal_plans',
+        type: 'array',
+        group: 'portal'
+    },
+    {
+        key: 'portal_button_style',
+        type: 'string',
+        group: 'portal'
+    },
+    {
+        key: 'portal_button_icon',
+        type: 'string',
+        group: 'portal'
+    },
+    {
+        key: 'portal_button_signup_text',
+        type: 'string',
+        group: 'portal'
+    },
+    {
+        key: 'mailgun_api_key',
+        type: 'string',
+        group: 'email'
+    },
+    {
+        key: 'mailgun_domain',
+        type: 'string',
+        group: 'email'
+    },
+    {
+        key: 'mailgun_base_url',
+        type: 'string',
+        group: 'email'
+    },
+    {
+        key: 'email_track_opens',
+        type: 'boolean',
+        group: 'email'
+    },
+    {
+        key: 'amp',
+        type: 'boolean',
+        group: 'amp'
+    },
+    {
+        key: 'amp_gtag_id',
+        type: 'string',
+        group: 'amp'
+    },
+    {
+        key: 'slack',
+        type: 'string',
+        group: 'slack'
+    },
+    {
+        key: 'slack_url',
+        type: 'string',
+        group: 'slack'
+    },
+    {
+        key: 'slack_username',
+        type: 'string',
+        group: 'slack'
+    },
+    {
+        key: 'unsplash',
+        type: 'boolean',
+        group: 'unsplash'
+    },
+    {
+        key: 'shared_views',
+        type: 'array',
+        group: 'views'
+    },
+    {
+        key: 'active_timezone',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'default_locale',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'accent_color',
+        type: 'string',
+        group: 'site'
+    },
+    {
+        key: 'newsletter_show_badge',
+        type: 'boolean',
+        group: 'newsletter'
+    },
+    {
+        key: 'newsletter_show_header',
+        type: 'boolean',
+        group: 'newsletter'
+    },
+    {
+        key: 'newsletter_header_image',
+        type: 'string',
+        group: 'newsletter'
+    },
+    {
+        key: 'newsletter_show_header_icon',
+        type: 'boolean',
+        group: 'newsletter'
+    },
+    {
+        key: 'newsletter_show_header_title',
+        type: 'boolean',
+        group: 'newsletter'
+    },
+    {
+        key: 'newsletter_title_alignment',
+        type: 'string',
+        group: 'newsletter'
+    },
+    {
+        key: 'newsletter_title_font_category',
+        type: 'string',
+        group: 'newsletter'
+    },
+    {
+        key: 'newsletter_show_feature_image',
+        type: 'boolean',
+        group: 'newsletter'
+    },
+    {
+        key: 'newsletter_body_font_category',
+        type: 'string',
+        group: 'newsletter'
+    },
+    {
+        key: 'newsletter_footer_content',
+        type: 'string',
+        group: 'newsletter'
+    },
+    {
+        key: 'firstpromoter',
+        type: 'boolean',
+        group: 'firstpromoter'
+    },
+    {
+        key: 'firstpromoter_id',
+        type: 'string',
+        group: 'firstpromoter'
+    },
+    {
+        key: 'oauth_client_id',
+        type: 'string',
+        group: 'oauth'
+    },
+    {
+        key: 'oauth_client_secret',
+        type: 'string',
+        group: 'oauth'
+    },
+    {
+        key: 'editor_default_email_recipients',
+        type: 'string',
+        group: 'editor'
+    },
+    {
+        key: 'editor_default_email_recipients_filter',
+        type: 'string',
+        group: 'editor'
+    },
+    {
+        key: 'labs',
+        type: 'object',
+        group: 'labs'
+    }
 ];
 
 describe('Settings API (canary)', function () {
@@ -121,8 +462,10 @@ describe('Settings API (canary)', function () {
                     should.equal(settings.length, defaultSettingsKeyTypes.length);
                     for (const defaultSetting of defaultSettingsKeyTypes) {
                         should.exist(settings.find((setting) => {
-                            return setting.key === defaultSetting.key && setting.type === defaultSetting.type;
-                        }), `Expected to find a setting with key ${defaultSetting.key} and type ${defaultSetting.type}`);
+                            return (setting.key === defaultSetting.key)
+                                && (setting.type === defaultSetting.type)
+                                && (setting.group === defaultSetting.group);
+                        }), `Expected to find a setting with key ${defaultSetting.key}, type ${defaultSetting.type}, and group ${defaultSetting.group}`);
                     }
 
                     const unsplash = settings.find(s => s.key === 'unsplash');
@@ -179,7 +522,8 @@ describe('Settings API (canary)', function () {
                     Object.keys(settings).length.should.equal(1);
                     settings[0].key.should.equal('active_theme');
                     settings[0].value.should.equal('casper');
-                    settings[0].type.should.equal('theme');
+                    settings[0].type.should.equal('string');
+                    settings[0].group.should.equal('theme');
 
                     localUtils.API.checkResponse(jsonResponse, 'settings');
                 });
@@ -318,19 +662,25 @@ describe('Settings API (canary)', function () {
                 });
         });
 
-        it('Can\'t read labs dropped in v4', function (done) {
-            request.get(localUtils.API.getApiQuery('settings/labs/'))
+        it('Can read labs', async function () {
+            const res = await request.get(localUtils.API.getApiQuery('settings/labs/'))
                 .set('Origin', config.get('url'))
                 .expect('Content-Type', /json/)
                 .expect('Cache-Control', testUtils.cacheRules.private)
-                .expect(404)
-                .end(function (err, res) {
-                    if (err) {
-                        return done(err);
-                    }
+                .expect(200);
 
-                    done();
-                });
+            should.not.exist(res.headers['x-cache-invalidate']);
+            const jsonResponse = res.body;
+
+            should.exist(jsonResponse);
+            should.exist(jsonResponse.settings);
+
+            jsonResponse.settings.length.should.eql(1);
+            testUtils.API.checkResponseValue(jsonResponse.settings[0], ['id', 'group', 'key', 'value', 'type', 'flags', 'created_at', 'updated_at']);
+
+            const jsonObjectRegex = /^\{.*\}$/; // '{...}'
+            jsonResponse.settings[0].key.should.eql('labs');
+            jsonResponse.settings[0].value.should.match(jsonObjectRegex);
         });
 
         it('Can read deprecated default_locale', function (done) {
@@ -646,31 +996,36 @@ describe('Settings API (canary)', function () {
                 });
         });
 
-        it('Can\'t edit labs dropped in v4', function (done) {
+        it('Can edit only allowed labs keys', async function () {
             const settingToChange = {
-                settings: [{key: 'labs', value: JSON.stringify({members: false})}]
+                settings: [{
+                    key: 'labs',
+                    value: JSON.stringify({
+                        activitypub: true,
+                        gibberish: true
+                    })
+                }]
             };
 
-            request.put(localUtils.API.getApiQuery('settings/'))
+            const res = await request.put(localUtils.API.getApiQuery('settings/'))
                 .set('Origin', config.get('url'))
                 .send(settingToChange)
                 .expect('Content-Type', /json/)
                 .expect('Cache-Control', testUtils.cacheRules.private)
-                .expect(200)
-                .end(function (err, res) {
-                    if (err) {
-                        return done(err);
-                    }
+                .expect(200);
 
-                    const jsonResponse = res.body;
+            const jsonResponse = res.body;
 
-                    should.exist(jsonResponse);
-                    should.exist(jsonResponse.settings);
+            should.exist(jsonResponse);
+            should.exist(jsonResponse.settings);
 
-                    jsonResponse.settings.length.should.eql(0);
+            jsonResponse.settings.length.should.eql(1);
+            testUtils.API.checkResponseValue(jsonResponse.settings[0], ['id', 'group', 'key', 'value', 'type', 'flags', 'created_at', 'updated_at']);
+            jsonResponse.settings[0].key.should.eql('labs');
 
-                    done();
-                });
+            jsonResponse.settings[0].value.should.eql(JSON.stringify({
+                activitypub: true
+            }));
         });
 
         it('Can\'t edit non existent setting', function () {

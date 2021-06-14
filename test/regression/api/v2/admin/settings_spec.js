@@ -40,6 +40,8 @@ const defaultSettingsKeyTypes = [
     {key: 'members_free_signup_redirect', type: 'members'},
     {key: 'members_free_price_name', type: 'members'},
     {key: 'members_free_price_description', type: 'members'},
+    {key: 'members_monthly_price_id', type: 'members'},
+    {key: 'members_yearly_price_id', type: 'members'},
     {key: 'stripe_product_name', type: 'members'},
     {key: 'stripe_plans', type: 'members'},
     {key: 'stripe_secret_key', type: 'members'},
@@ -70,14 +72,21 @@ const defaultSettingsKeyTypes = [
     {key: 'default_locale', type: 'blog'},
     {key: 'newsletter_show_badge', type: 'newsletter'},
     {key: 'newsletter_show_header', type: 'newsletter'},
-    {key: 'newsletter_footer_content', type: 'newsletter'},
+    {key: 'newsletter_header_image', type: 'newsletter'},
+    {key: 'newsletter_show_header_icon', type: 'newsletter'},
+    {key: 'newsletter_show_header_title', type: 'newsletter'},
+    {key: 'newsletter_title_alignment', type: 'newsletter'},
+    {key: 'newsletter_title_font_category', type: 'newsletter'},
+    {key: 'newsletter_show_feature_image', type: 'newsletter'},
     {key: 'newsletter_body_font_category', type: 'newsletter'},
+    {key: 'newsletter_footer_content', type: 'newsletter'},
     {key: 'firstpromoter', type: 'firstpromoter'},
     {key: 'firstpromoter_id', type: 'firstpromoter'},
     {key: 'oauth_client_id', type: 'oauth'},
     {key: 'oauth_client_secret', type: 'oauth'},
     {key: 'editor_default_email_recipients', type: 'editor'},
-    {key: 'editor_default_email_recipients_filter', type: 'editor'}
+    {key: 'editor_default_email_recipients_filter', type: 'editor'},
+    {key: 'labs', type: 'blog'}
 ];
 
 describe('Settings API (v2)', function () {
@@ -152,7 +161,7 @@ describe('Settings API (v2)', function () {
                 });
         });
 
-        xit('Can not request settings by group, returns all settings instead', function () {
+        it('Can not request settings by group, returns all settings instead', function () {
             return request.get(localUtils.API.getApiQuery(`settings/?group=theme`))
                 .set('Origin', config.get('url'))
                 .expect('Content-Type', /json/)
@@ -168,8 +177,8 @@ describe('Settings API (v2)', function () {
                     jsonResponse.settings.should.be.an.Object();
                     const settings = jsonResponse.settings;
 
-                    Object.keys(settings).length.should.equal(39);
-                    settings.map(s => s.key).should.deepEqual(defaultSettingsKeyTypes);
+                    Object.keys(settings).length.should.equal(defaultSettingsKeyTypes.length);
+                    settings.map(s => s.key).sort().should.eql(defaultSettingsKeyTypes.map(s => s.key).sort());
 
                     localUtils.API.checkResponse(jsonResponse, 'settings');
                 });
@@ -262,19 +271,25 @@ describe('Settings API (v2)', function () {
                 });
         });
 
-        it('Can\'t read labs dropped in v4', function (done) {
-            request.get(localUtils.API.getApiQuery('settings/labs/'))
+        it('Can read labs', async function () {
+            const res = await request.get(localUtils.API.getApiQuery('settings/labs/'))
                 .set('Origin', config.get('url'))
                 .expect('Content-Type', /json/)
                 .expect('Cache-Control', testUtils.cacheRules.private)
-                .expect(404)
-                .end(function (err, res) {
-                    if (err) {
-                        return done(err);
-                    }
+                .expect(200);
 
-                    done();
-                });
+            should.not.exist(res.headers['x-cache-invalidate']);
+            const jsonResponse = res.body;
+
+            should.exist(jsonResponse);
+            should.exist(jsonResponse.settings);
+
+            jsonResponse.settings.length.should.eql(1);
+            testUtils.API.checkResponseValue(jsonResponse.settings[0], ['id', 'key', 'value', 'type', 'flags', 'created_at', 'updated_at']);
+
+            const jsonObjectRegex = /^\{.*\}$/; // '{...}'
+            jsonResponse.settings[0].key.should.eql('labs');
+            jsonResponse.settings[0].value.should.match(jsonObjectRegex);
         });
 
         it('Can read default_locale deprecated in v3', function (done) {
@@ -514,31 +529,30 @@ describe('Settings API (v2)', function () {
                 });
         });
 
-        it('Can\'t edit labs dropped in v4', function (done) {
+        it('Cannot edit labs keys', async function () {
             const settingToChange = {
-                settings: [{key: 'labs', value: JSON.stringify({members: false})}]
+                settings: [{
+                    key: 'labs',
+                    value: JSON.stringify({
+                        activitypub: true,
+                        gibberish: true
+                    })
+                }]
             };
 
-            request.put(localUtils.API.getApiQuery('settings/'))
+            const res = await request.put(localUtils.API.getApiQuery('settings/'))
                 .set('Origin', config.get('url'))
                 .send(settingToChange)
                 .expect('Content-Type', /json/)
                 .expect('Cache-Control', testUtils.cacheRules.private)
-                .expect(200)
-                .end(function (err, res) {
-                    if (err) {
-                        return done(err);
-                    }
+                .expect(200);
 
-                    const jsonResponse = res.body;
+            const jsonResponse = res.body;
 
-                    should.exist(jsonResponse);
-                    should.exist(jsonResponse.settings);
+            should.exist(jsonResponse);
+            should.exist(jsonResponse.settings);
 
-                    jsonResponse.settings.length.should.eql(0);
-
-                    done();
-                });
+            jsonResponse.settings.length.should.eql(0);
         });
 
         it('Can\'t edit non existent setting', function () {

@@ -117,7 +117,12 @@ Post = ghostBookshelf.Model.extend({
     formatOnWrite(attrs) {
         // Ensure all URLs are stored as transform-ready with __GHOST_URL__ representing config.url
         const urlTransformMap = {
-            mobiledoc: 'mobiledocToTransformReady',
+            mobiledoc: {
+                method: 'mobiledocToTransformReady',
+                options: {
+                    cardTransformers: mobiledocLib.cards
+                }
+            },
             html: 'htmlToTransformReady',
             plaintext: 'plaintextToTransformReady',
             custom_excerpt: 'htmlToTransformReady',
@@ -699,10 +704,6 @@ Post = ghostBookshelf.Model.extend({
         return this.belongsToMany('Tag', 'posts_tags', 'post_id', 'tag_id')
             .withPivot('sort_order')
             .query('orderBy', 'sort_order', 'ASC');
-    },
-
-    fields: function fields() {
-        return this.morphMany('AppField', 'relatable');
     },
 
     mobiledoc_revisions() {

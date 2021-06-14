@@ -206,6 +206,47 @@ describe('Members API (canary)', function () {
             });
     });
 
+    it('Paid members subscriptions has price data', function () {
+        const memberChanged = {
+            name: 'Updated name'
+        };
+        return request
+            .get(localUtils.API.getApiQuery('members/?search=egon&paid=true'))
+            .set('Origin', config.get('url'))
+            .expect('Content-Type', /json/)
+            .expect('Cache-Control', testUtils.cacheRules.private)
+            .expect(200)
+            .then((res) => {
+                should.not.exist(res.headers['x-cache-invalidate']);
+                const jsonResponse = res.body;
+                should.exist(jsonResponse);
+                should.exist(jsonResponse.members);
+                jsonResponse.members.should.have.length(1);
+                should.exist(jsonResponse.members[0].subscriptions[0].price);
+                return jsonResponse.members[0];
+            }).then((paidMember) => {
+                return request
+                    .put(localUtils.API.getApiQuery(`members/${paidMember.id}/`))
+                    .send({members: [memberChanged]})
+                    .set('Origin', config.get('url'))
+                    .expect('Content-Type', /json/)
+                    .expect('Cache-Control', testUtils.cacheRules.private)
+                    .expect(200)
+                    .then((res) => {
+                        should.not.exist(res.headers['x-cache-invalidate']);
+
+                        const jsonResponse = res.body;
+
+                        should.exist(jsonResponse);
+                        should.exist(jsonResponse.members);
+                        jsonResponse.members.should.have.length(1);
+                        localUtils.API.checkResponse(jsonResponse.members[0], 'member', ['subscriptions', 'products']);
+                        should.exist(jsonResponse.members[0].subscriptions[0].price);
+                        jsonResponse.members[0].name.should.equal(memberChanged.name);
+                    });
+            });
+    });
+
     it('Add should fail when passing incorrect email_type query parameter', function () {
         const member = {
             name: 'test',
@@ -245,57 +286,6 @@ describe('Members API (canary)', function () {
             });
     });
 
-    // NOTE: this test should be enabled and expanded once test suite fully supports Stripe mocking
-    it.skip('Can set a "Complimentary" subscription', function () {
-        const memberToChange = {
-            name: 'Comped Member',
-            email: 'member2comp@test.com'
-        };
-
-        const memberChanged = {
-            comped: true
-        };
-
-        return request
-            .post(localUtils.API.getApiQuery(`members/`))
-            .send({members: [memberToChange]})
-            .set('Origin', config.get('url'))
-            .expect('Content-Type', /json/)
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            .expect(201)
-            .then((res) => {
-                should.not.exist(res.headers['x-cache-invalidate']);
-                const jsonResponse = res.body;
-                should.exist(jsonResponse);
-                should.exist(jsonResponse.members);
-                jsonResponse.members.should.have.length(1);
-
-                return jsonResponse.members[0];
-            })
-            .then((newMember) => {
-                return request
-                    .put(localUtils.API.getApiQuery(`members/${newMember.id}/`))
-                    .send({members: [memberChanged]})
-                    .set('Origin', config.get('url'))
-                    .expect('Content-Type', /json/)
-                    .expect('Cache-Control', testUtils.cacheRules.private)
-                    .expect(200)
-                    .then((res) => {
-                        should.not.exist(res.headers['x-cache-invalidate']);
-
-                        const jsonResponse = res.body;
-
-                        should.exist(jsonResponse);
-                        should.exist(jsonResponse.members);
-                        jsonResponse.members.should.have.length(1);
-                        localUtils.API.checkResponse(jsonResponse.members[0], 'member', 'subscriptions');
-                        jsonResponse.members[0].name.should.equal(memberToChange.name);
-                        jsonResponse.members[0].email.should.equal(memberToChange.email);
-                        jsonResponse.members[0].comped.should.equal(memberToChange.comped);
-                    });
-            });
-    });
-
     it('Can delete a member without cancelling Stripe Subscription', async function () {
         const member = {
             name: 'Member 2 Delete',
@@ -319,80 +309,6 @@ describe('Members API (canary)', function () {
             });
 
         await request.delete(localUtils.API.getApiQuery(`members/${createdMember.id}/`))
-            .set('Origin', config.get('url'))
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            .expect(204)
-            .then((res) => {
-                should.not.exist(res.headers['x-cache-invalidate']);
-
-                const jsonResponse = res.body;
-
-                should.exist(jsonResponse);
-            });
-    });
-
-    // NOTE: this test should be enabled and expanded once test suite fully supports Stripe mocking
-    it.skip('Can delete a member and cancel Stripe Subscription', async function () {
-        const member = {
-            name: 'Member 2 Delete',
-            email: 'Member2Delete@test.com',
-            comped: true
-        };
-
-        const createdMember = await request.post(localUtils.API.getApiQuery(`members/`))
-            .send({members: [member]})
-            .set('Origin', config.get('url'))
-            .expect('Content-Type', /json/)
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            .expect(201)
-            .then((res) => {
-                should.not.exist(res.headers['x-cache-invalidate']);
-                const jsonResponse = res.body;
-                should.exist(jsonResponse);
-                should.exist(jsonResponse.members);
-                jsonResponse.members.should.have.length(1);
-
-                return jsonResponse.members[0];
-            });
-
-        await request.delete(localUtils.API.getApiQuery(`members/${createdMember.id}/?cancel=true`))
-            .set('Origin', config.get('url'))
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            .expect(204)
-            .then((res) => {
-                should.not.exist(res.headers['x-cache-invalidate']);
-
-                const jsonResponse = res.body;
-
-                should.exist(jsonResponse);
-            });
-    });
-
-    // NOTE: this test should be enabled and expanded once test suite fully supports Stripe mocking
-    it.skip('Does not cancel Stripe Subscription if cancel_subscriptions is not set to "true"', async function () {
-        const member = {
-            name: 'Member 2 Delete',
-            email: 'Member2Delete@test.com',
-            comped: true
-        };
-
-        const createdMember = await request.post(localUtils.API.getApiQuery(`members/`))
-            .send({members: [member]})
-            .set('Origin', config.get('url'))
-            .expect('Content-Type', /json/)
-            .expect('Cache-Control', testUtils.cacheRules.private)
-            .expect(201)
-            .then((res) => {
-                should.not.exist(res.headers['x-cache-invalidate']);
-                const jsonResponse = res.body;
-                should.exist(jsonResponse);
-                should.exist(jsonResponse.members);
-                jsonResponse.members.should.have.length(1);
-
-                return jsonResponse.members[0];
-            });
-
-        await request.delete(localUtils.API.getApiQuery(`members/${createdMember.id}/?cancel=false`))
             .set('Origin', config.get('url'))
             .expect('Cache-Control', testUtils.cacheRules.private)
             .expect(204)

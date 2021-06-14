@@ -50,9 +50,9 @@ function ensureActiveTheme(req, res, next) {
 async function haxGetMembersPriceData() {
     const defaultPrice = {
         amount: 0,
-        currency: null,
-        interval: null,
-        nickname: null
+        currency: 'usd',
+        interval: 'year',
+        nickname: ''
     };
 
     function makePriceObject(price) {
@@ -71,31 +71,19 @@ async function haxGetMembersPriceData() {
 
     try {
         const {products} = await api.canary.products.browse({
-            include: 'stripe_prices'
+            include: ['monthly_price','yearly_price']
         });
 
         const defaultProduct = products[0];
 
-        const nonZeroPrices = defaultProduct.stripe_prices.filter((price) => {
-            return price.amount !== 0;
-        });
+        const monthlyPrice = makePriceObject(defaultProduct.monthly_price || defaultPrice);
 
-        const monthlyPrice = nonZeroPrices.find((price) => {
-            return price.nickname === 'Monthly';
-        }) || nonZeroPrices.find((price) => {
-            return price.interval === 'month';
-        });
-
-        const yearlyPrice = nonZeroPrices.find((price) => {
-            return price.nickname === 'Yearly';
-        }) || nonZeroPrices.find((price) => {
-            return price.interval === 'year';
-        });
+        const yearlyPrice = makePriceObject(defaultProduct.yearly_price || defaultPrice);
 
         const priceData = {
-            monthly: makePriceObject(monthlyPrice || defaultPrice),
-            yearly: makePriceObject(yearlyPrice || defaultPrice),
-            currency: nonZeroPrices[0].currency
+            monthly: monthlyPrice,
+            yearly: yearlyPrice,
+            currency: monthlyPrice ? monthlyPrice.currency : defaultPrice.currency
         };
 
         return priceData;
@@ -103,8 +91,21 @@ async function haxGetMembersPriceData() {
         return {
             monthly: makePriceObject(defaultPrice),
             yearly: makePriceObject(defaultPrice),
-            currency: null
+            currency: 'usd'
         };
+    }
+}
+
+async function getProductAndPricesData() {
+    try {
+        const page = await api.canary.productsPublic.browse({
+            include: ['monthly_price', 'yearly_price'],
+            limit: 'all'
+        });
+
+        return page.products;
+    } catch (err) {
+        return [];
     }
 }
 
@@ -137,6 +138,15 @@ async function updateGlobalTemplateOptions(req, res, next) {
         image_sizes: activeTheme.get().config('image_sizes')
     };
     const priceData = await haxGetMembersPriceData();
+    const productData = await getProductAndPricesData();
+
+    let products = null;
+    let product = null;
+    if (productData.length === 1) {
+        product = productData[0];
+    } else {
+        products = productData;
+    }
 
     // @TODO: only do this if something changed?
     // @TODO: remove blog in a major where we are happy to break more themes
@@ -147,7 +157,9 @@ async function updateGlobalTemplateOptions(req, res, next) {
                 site: siteData,
                 labs: labsData,
                 config: themeData,
-                price: priceData
+                price: priceData,
+                product,
+                products
             }
         });
     }

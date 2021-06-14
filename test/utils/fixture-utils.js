@@ -15,6 +15,7 @@ const emailAnalyticsService = require('../../core/server/services/email-analytic
 const permissions = require('../../core/server/services/permissions');
 const settingsService = require('../../core/server/services/settings');
 const settingsCache = require('../../core/server/services/settings/cache');
+const labsService = require('../../core/server/services/labs');
 
 // Other Test Utilities
 const context = require('./fixtures/context');
@@ -496,6 +497,14 @@ const fixtures = {
             return Promise.each(_.cloneDeep(DataGenerator.forKnex.stripe_prices), function (stripePrice) {
                 return models.StripePrice.add(stripePrice, context.internal);
             });
+        }).then(async function () {
+            // Add monthly/yearly prices to default product for testing
+            const defaultProduct = await models.Product.findOne({slug: 'default-product'}, context.internal);
+            return models.Product.edit({
+                ...defaultProduct.toJSON(),
+                monthly_price_id: DataGenerator.forKnex.stripe_prices[1].id,
+                yearly_price_id: DataGenerator.forKnex.stripe_prices[2].id
+            }, _.merge({id: defaultProduct.id}, context.internal));
         }).then(function () {
             return Promise.each(_.cloneDeep(DataGenerator.forKnex.stripe_customer_subscriptions), function (subscription) {
                 return models.StripeCustomerSubscription.add(subscription, context.internal);
@@ -528,6 +537,28 @@ const fixtures = {
         return Promise.map(DataGenerator.forKnex.snippets, function (snippet) {
             return models.Snippet.add(snippet, context.internal);
         });
+    },
+
+    async enableAllLabsFeatures() {
+        const labsValue = Object.fromEntries(labsService.WRITABLE_KEYS_ALLOWLIST.map(key => [key, true]));
+        const labsSetting = DataGenerator.forKnex.createSetting({
+            key: 'labs',
+            group: 'labs',
+            type: 'object',
+            value: JSON.stringify(labsValue)
+        });
+
+        const existingLabsSetting = await models.Settings.findOne({key: 'labs'});
+
+        if (existingLabsSetting) {
+            delete labsSetting.id;
+            await models.Settings.edit(labsSetting);
+        } else {
+            await models.Settings.add(labsSetting);
+        }
+
+        settingsCache.shutdown();
+        await settingsService.init();
     }
 };
 
@@ -616,6 +647,9 @@ const toDoList = {
     },
     snippets: function insertSnippets() {
         return fixtures.insertSnippets();
+    },
+    'labs:enabled': function enableAllLabsFeatures() {
+        return fixtures.enableAllLabsFeatures();
     }
 };
 
@@ -651,6 +685,8 @@ const getFixtureOps = (toDos) => {
         delete toDos.default;
         delete toDos.init;
     }
+
+    fixtureOps.push(toDoList['labs:enabled']);
 
     // Go through our list of things to do, and add them to an array
     _.each(toDos, function (value, toDo) {

@@ -13,7 +13,12 @@ module.exports = {
         // @TODO: remove this rule once it's turned into "error" in the base plugin
         'no-shadow': 'error',
         'no-var': 'error',
-        'one-var': [2, 'never']
+        'one-var': [2, 'never'],
+        'no-restricted-syntax': ['warn',
+            {
+                selector: 'NewExpression[callee.name=\'Error\']',
+                message: 'Direct calls to new Error() are not allowed. Please use @tryghost/errors.'
+            }]
     },
     overrides: [
         {
@@ -31,7 +36,7 @@ module.exports = {
         {
             files: 'core/shared/**',
             rules: {
-                'ghost/node/no-restricted-require': ['warn', [
+                'ghost/node/no-restricted-require': ['error', [
                     {
                         name: path.resolve(__dirname, 'core/server/**'),
                         message: 'Invalid require of core/server from core/shared.'
