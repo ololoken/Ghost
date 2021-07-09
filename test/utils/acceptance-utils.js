@@ -1,6 +1,5 @@
-require('../../core/server/overrides');
-
 // Utility Packages
+const debug = require('@tryghost/debug')('test');
 const Promise = require('bluebird');
 const _ = require('lodash');
 const fs = require('fs-extra');
@@ -18,7 +17,6 @@ const models = require('../../core/server/models');
 const urlService = require('../../core/frontend/services/url');
 const settingsService = require('../../core/server/services/settings');
 const frontendSettingsService = require('../../core/frontend/services/settings');
-const settingsCache = require('../../core/server/services/settings/cache');
 const web = require('../../core/server/web');
 const themeService = require('../../core/server/services/themes');
 const limits = require('../../core/server/services/limits');
@@ -32,6 +30,7 @@ const context = require('./fixtures/context');
 
 let ghostServer;
 let existingData = {};
+let totalStartTime = 0;
 
 /**
  * Because we use ObjectID we don't know the ID of fixtures ahead of time
@@ -98,33 +97,31 @@ const prepareContentFolder = (options) => {
 // - re-run default fixtures
 // - reload affected services
 const restartModeGhostStart = async () => {
-    console.log('Restart Mode'); // eslint-disable-line no-console
-
+    debug('Reload Mode');
     // Teardown truncates all tables and also calls urlServiceUtils.reset();
     await dbUtils.teardown();
 
     // The tables have been truncated, this runs the fixture init task (init file 2) to re-add our default fixtures
     await knexMigrator.init({only: 2});
+    debug('init done');
 
     // Reset the settings cache
-    // @TODO: Prob A: why/how is this different to using settingsCache.reset()
-    settingsCache.shutdown();
     await settingsService.init();
+    debug('settings done');
 
     // Reload the frontend
     await frontendSettingsService.init();
     await themeService.init();
+    debug('frontend done');
 
     // Reload the URL service & wait for it to be ready again
-    // @TODO: Prob B: why/how is this different to urlService.resetGenerators?
+    // @TODO: why/how is this different to urlService.resetGenerators?
     urlServiceUtils.reset();
     urlServiceUtils.init();
     await urlServiceUtils.isFinished();
+    debug('routes done');
     // @TODO: why does this happen _after_ URL service
     web.shared.middlewares.customRedirects.reload();
-
-    // Trigger themes to load again
-    themeService.loadInactiveThemes();
 
     // Reload limits service
     limits.init();
@@ -143,21 +140,19 @@ const bootGhost = async () => {
 // - Start Ghost: Uses OLD Boot process
 const freshModeGhostStart = async (options) => {
     if (options.forceStart) {
-        console.log('Force Start Mode'); // eslint-disable-line no-console
+        debug('Forced Restart Mode');
     } else {
-        console.log('Fresh Start Mode'); // eslint-disable-line no-console
+        debug('Fresh Start Mode');
     }
 
     // Reset the DB
     await knexMigrator.reset({force: true});
 
-    // Stop the serve (forceStart Mode)
+    // Stop the server (forceStart Mode)
     await stopGhost();
 
-    // Reset the settings cache
-    // @TODO: Prob A: why/how is this different to using settingsService.init() and why to do we need this?
-    settingsCache.shutdown();
-    settingsCache.reset();
+    // Reset the settings cache and disable listeners so they don't get triggered further
+    settingsService.shutdown();
 
     // Do a full database initialisation
     await knexMigrator.init();
@@ -165,6 +160,8 @@ const freshModeGhostStart = async (options) => {
     if (config.get('database:client') === 'sqlite3') {
         await db.knex.raw('PRAGMA journal_mode = TRUNCATE;');
     }
+
+    await settingsService.init();
 
     // Reset the URL service generators
     // @TODO: Prob B: why/how is this different to urlService.reset?
@@ -174,12 +171,13 @@ const freshModeGhostStart = async (options) => {
     // Actually boot Ghost
     await bootGhost(options);
 
-    // Wait for the URL service to be ready, which happens after boot
+    // Wait for the URL service to be ready, which happens after bootYou
     await urlServiceUtils.isFinished();
 };
 
 const startGhost = async (options) => {
-    console.time('Start Ghost'); // eslint-disable-line no-console
+    const startTime = Date.now();
+    debug('Start Ghost');
     options = _.merge({
         redirectsFile: true,
         redirectsFileExt: '.json',
@@ -202,7 +200,12 @@ const startGhost = async (options) => {
 
     // Expose fixture data, wrap-up and return
     await exposeFixtures();
-    console.timeEnd('Start Ghost'); // eslint-disable-line no-console
+
+    // Reporting
+    const totalTime = Date.now() - startTime;
+    totalStartTime += totalTime;
+    debug(`Started Ghost in ${totalTime / 1000}s`);
+    debug(`Accumulated start time is ${totalStartTime / 1000}s`);
     return ghostServer;
 };
 

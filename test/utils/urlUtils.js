@@ -1,6 +1,7 @@
 const _ = require('lodash');
 const sinon = require('sinon');
 const UrlUtils = require('@tryghost/url-utils');
+const configUtils = require('./configUtils');
 const config = require('../../core/shared/config');
 const urlUtils = require('../../core/shared/url-utils');
 
@@ -8,8 +9,9 @@ const defaultSandbox = sinon.createSandbox();
 
 const getInstance = (options) => {
     const opts = {
-        url: options.url,
-        adminUrl: options.adminUrl,
+        getSubdir: config.getSubdir,
+        getSiteUrl: config.getSiteUrl,
+        getAdminUrl: config.getAdminUrl,
         apiVersions: options.apiVersions,
         defaultApiVersion: 'v3',
         slugs: options.slugs,
@@ -43,8 +45,6 @@ const stubUrlUtils = (options, sandbox) => {
 // Method for regressions tests must be used with restore method
 const stubUrlUtilsFromConfig = () => {
     const options = {
-        url: config.get('url'),
-        adminUrl: config.get('admin:url'),
         apiVersions: config.get('api:versions'),
         defaultApiVersion: 'v3',
         slugs: config.get('slugs').protected,
@@ -57,9 +57,9 @@ const stubUrlUtilsFromConfig = () => {
 
 const restore = () => {
     defaultSandbox.restore();
+    configUtils.restore();
 };
 
-module.exports.stubUrlUtils = stubUrlUtils;
 module.exports.stubUrlUtilsFromConfig = stubUrlUtilsFromConfig;
 module.exports.restore = restore;
 module.exports.getInstance = getInstance;

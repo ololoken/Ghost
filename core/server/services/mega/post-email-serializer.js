@@ -1,9 +1,7 @@
 const _ = require('lodash');
 const juice = require('juice');
 const template = require('./template');
-const labsTemplate = require('./template-labs');
-const config = require('../../../shared/config');
-const settingsCache = require('../../services/settings/cache');
+const settingsCache = require('../../../shared/settings-cache');
 const urlUtils = require('../../../shared/url-utils');
 const moment = require('moment-timezone');
 const cheerio = require('cheerio');
@@ -12,7 +10,7 @@ const {URL} = require('url');
 const mobiledocLib = require('../../lib/mobiledoc');
 const htmlToText = require('html-to-text');
 const {isUnsplashImage, isLocalContentImage} = require('@tryghost/kg-default-cards/lib/utils');
-const logging = require('../../../shared/logging');
+const logging = require('@tryghost/logging');
 
 const ALLOWED_REPLACEMENTS = ['first_name'];
 
@@ -21,6 +19,20 @@ const getSite = () => {
     return Object.assign({}, publicSettings, {
         url: urlUtils.urlFor('home', true),
         iconUrl: publicSettings.icon ? urlUtils.urlFor('image', {image: publicSettings.icon}, true) : null
+    });
+};
+
+const htmlToPlaintext = (html) => {
+    // same options as used in Post model for generating plaintext but without `wordwrap: 80`
+    // to avoid replacement strings being split across lines and for mail clients to handle
+    // word wrapping based on user preferences
+    return htmlToText.fromString(html, {
+        wordwrap: false,
+        ignoreImage: true,
+        hideLinkHrefIfSameAsText: true,
+        preserveNewlines: true,
+        returnDomByDefault: true,
+        uppercaseHeadings: false
     });
 };
 
@@ -89,7 +101,15 @@ const normalizeReplacementStrings = (email) => {
     return emailContent;
 };
 
-// parses email content and extracts an array of replacements with desired fallbacks
+/**
+ * Parses email content and extracts an array of replacements with desired fallbacks
+ *
+ * @param {Object} email
+ * @param {string} email.html
+ * @param {string} email.plaintext
+ *
+ * @returns {Object[]} replacements
+ */
 const parseReplacements = (email) => {
     const EMAIL_REPLACEMENT_REGEX = /%%(\{.*?\})%%/g;
     const REPLACEMENT_STRING_REGEX = /\{(?<recipientProperty>\w*?)(?:,? *(?:"|&quot;)(?<fallback>.*?)(?:"|&quot;))?\}/;
@@ -124,16 +144,6 @@ const parseReplacements = (email) => {
 };
 
 const getTemplateSettings = async () => {
-    return {
-        showSiteHeader: settingsCache.get('newsletter_show_header'),
-        bodyFontCategory: settingsCache.get('newsletter_body_font_category'),
-        showBadge: settingsCache.get('newsletter_show_badge'),
-        footerContent: settingsCache.get('newsletter_footer_content'),
-        accentColor: settingsCache.get('accent_color')
-    };
-};
-
-const getLabsTemplateSettings = async () => {
     const templateSettings = {
         headerImage: settingsCache.get('newsletter_header_image'),
         showHeaderIcon: settingsCache.get('newsletter_show_header_icon') && settingsCache.get('icon'),
@@ -151,7 +161,7 @@ const getLabsTemplateSettings = async () => {
         if (isUnsplashImage(templateSettings.headerImage)) {
             // Unsplash images have a minimum size so assuming 1200px is safe
             const unsplashUrl = new URL(templateSettings.headerImage);
-            unsplashUrl.searchParams.set('w', 1200);
+            unsplashUrl.searchParams.set('w', '1200');
 
             templateSettings.headerImage = unsplashUrl.href;
             templateSettings.headerImageWidth = 600;
@@ -199,17 +209,7 @@ const serialize = async (postModel, options = {isBrowserPreview: false, apiVersi
     }
 
     post.html = mobiledocLib.mobiledocHtmlRenderer.render(JSON.parse(post.mobiledoc), {target: 'email'});
-    // same options as used in Post model for generating plaintext but without `wordwrap: 80`
-    // to avoid replacement strings being split across lines and for mail clients to handle
-    // word wrapping based on user preferences
-    post.plaintext = htmlToText.fromString(post.html, {
-        wordwrap: false,
-        ignoreImage: true,
-        hideLinkHrefIfSameAsText: true,
-        preserveNewlines: true,
-        returnDomByDefault: true,
-        uppercaseHeadings: false
-    });
+    post.plaintext = htmlToPlaintext(post.html);
 
     // Outlook will render feature images at full-size breaking the layout.
     // Content images fix this by rendering max 600px images - do the same for feature image here
@@ -217,7 +217,7 @@ const serialize = async (postModel, options = {isBrowserPreview: false, apiVersi
         if (isUnsplashImage(post.feature_image)) {
             // Unsplash images have a minimum size so assuming 1200px is safe
             const unsplashUrl = new URL(post.feature_image);
-            unsplashUrl.searchParams.set('w', 1200);
+            unsplashUrl.searchParams.set('w', '1200');
 
             post.feature_image = unsplashUrl.href;
             post.feature_image_width = 600;
@@ -242,14 +242,12 @@ const serialize = async (postModel, options = {isBrowserPreview: false, apiVersi
         }
     }
 
-    const useLabsTemplate = config.get('enableDeveloperExperiments');
-    const templateSettings = await (useLabsTemplate ? getLabsTemplateSettings() : getTemplateSettings());
-    const templateRenderer = useLabsTemplate ? labsTemplate : template;
+    const templateSettings = await getTemplateSettings();
 
-    let htmlTemplate = templateRenderer({post, site: getSite(), templateSettings});
+    let htmlTemplate = template({post, site: getSite(), templateSettings});
 
     if (options.isBrowserPreview) {
-        const previewUnsubscribeUrl = createUnsubscribeUrl();
+        const previewUnsubscribeUrl = createUnsubscribeUrl(null);
         htmlTemplate = htmlTemplate.replace('%recipient.unsubscribe_url%', previewUnsubscribeUrl);
     }
 
@@ -263,7 +261,7 @@ const serialize = async (postModel, options = {isBrowserPreview: false, apiVersi
     // force all links to open in new tab
     _cheerio('a').attr('target','_blank');
     // convert figure and figcaption to div so that Outlook applies margins
-    _cheerio('figure, figcaption').each((i, elem) => (elem.tagName = 'div'));
+    _cheerio('figure, figcaption').each((i, elem) => !!(elem.tagName = 'div'));
     juicedHtml = _cheerio.html();
 
     // Fix any unsupported chars in Outlook
@@ -282,8 +280,27 @@ const serialize = async (postModel, options = {isBrowserPreview: false, apiVersi
     };
 };
 
+function renderEmailForSegment(email, memberSegment) {
+    const result = {...email};
+    const $ = cheerio.load(result.html);
+
+    $('[data-gh-segment]').get().forEach((node) => {
+        if (node.attribs['data-gh-segment'] !== memberSegment) { //TODO: replace with NQL interpretation
+            $(node).remove();
+        } else {
+            // Getting rid of the attribute for a cleaner html output
+            $(node).removeAttr('data-gh-segment');
+        }
+    });
+    result.html = $.html();
+    result.plaintext = htmlToPlaintext(result.html);
+
+    return result;
+}
+
 module.exports = {
     serialize,
     createUnsubscribeUrl,
+    renderEmailForSegment,
     parseReplacements
 };

@@ -1,4 +1,4 @@
-const debug = require('ghost-ignition').debug('web:members:app');
+const debug = require('@tryghost/debug')('members');
 const {URL} = require('url');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -14,6 +14,9 @@ module.exports = function setupMembersApp() {
 
     // send 503 json response in case of maintenance
     membersApp.use(shared.middlewares.maintenance);
+
+    // Members API shouldn't be cached
+    membersApp.use(shared.middlewares.cacheControl('private'));
 
     // Support CORS for requests from the frontend
     const siteUrl = new URL(urlUtils.getSiteUrl());

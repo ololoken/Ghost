@@ -1,9 +1,11 @@
 const _ = require('lodash');
-const debug = require('ghost-ignition').debug('services:url:urls');
-const events = require('../../../server/lib/common/events');
+const debug = require('@tryghost/debug')('services:url:urls');
 const urlUtils = require('../../../shared/url-utils');
-const logging = require('../../../shared/logging');
+const logging = require('@tryghost/logging');
 const errors = require('@tryghost/errors');
+
+// This emits its own url added/removed events
+const events = require('../../../server/lib/common/events');
 
 /**
  * This class keeps track of all urls in the system.

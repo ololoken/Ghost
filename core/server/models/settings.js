@@ -7,9 +7,9 @@ const ObjectID = require('bson-objectid');
 const ghostBookshelf = require('./base');
 const i18n = require('../../shared/i18n');
 const errors = require('@tryghost/errors');
-const validation = require('../data/validation');
+const validator = require('@tryghost/validator');
 const urlUtils = require('../../shared/url-utils');
-const {WRITABLE_KEYS_ALLOWLIST} = require('../services/labs');
+const {WRITABLE_KEYS_ALLOWLIST} = require('../../shared/labs');
 
 const internalContext = {context: {internal: true}};
 let Settings;
@@ -332,7 +332,7 @@ Settings = ghostBookshelf.Model.extend({
             }
 
             // Basic validations from default-settings.json
-            const validationErrors = validation.validate(
+            const validationErrors = validator.validate(
                 model.get('value'),
                 model.get('key'),
                 settingDefault.validations,

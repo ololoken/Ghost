@@ -1,4 +1,4 @@
-const debug = require('ghost-ignition').debug('web:site:app');
+const debug = require('@tryghost/debug')('frontend');
 const path = require('path');
 const express = require('../../../shared/express');
 const cors = require('cors');
@@ -6,7 +6,6 @@ const {URL} = require('url');
 const errors = require('@tryghost/errors');
 
 // App requires
-const bridge = require('../../../bridge');
 const config = require('../../../shared/config');
 const constants = require('@tryghost/constants');
 const storage = require('../../adapters/storage');
@@ -74,7 +73,7 @@ function SiteRouter(req, res, next) {
 }
 
 module.exports = function setupSiteApp(options = {}) {
-    debug('Site setup start');
+    debug('Site setup start', options);
 
     const siteApp = express('site');
 
@@ -190,9 +189,9 @@ module.exports = function setupSiteApp(options = {}) {
     return siteApp;
 };
 
-module.exports.reload = () => {
+module.exports.reload = ({apiVersion}) => {
     // https://github.com/expressjs/express/issues/2596
-    router = siteRoutes({start: bridge.getFrontendApiVersion()});
+    router = siteRoutes({start: true, apiVersion});
     Object.setPrototypeOf(SiteRouter, router);
 
     // re-initialse apps (register app routers, because we have re-initialised the site routers)
